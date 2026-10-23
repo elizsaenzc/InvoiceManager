@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,12 +35,14 @@ jobs:
           curl -fs localhost:8080/ | grep -q "Panel"
       - name: Capturas de pantalla
         if: always()
+        timeout-minutes: 6
         run: |
           npm i --no-save --silent playwright@1.48.2
           npx playwright install --with-deps chromium > /dev/null
           node .github/scripts/screenshots.js shots
       - name: Auditoría funcional (páginas, flujos de factura y validaciones)
         if: always()
+        timeout-minutes: 8
         run: python3 .github/scripts/audit.py
       - name: Publicar capturas en una referencia de CI
         if: always() && github.event_name != 'pull_request'

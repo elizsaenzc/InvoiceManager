@@ -10,10 +10,12 @@ const log = [];
   const browser = await chromium.launch();
   const desk = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-ES', timezoneId: 'Europe/Madrid' });
   const page = await desk.newPage();
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(20000);
   page.on('pageerror', e => log.push(`pageerror ${page.url()}: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error') log.push(`console ${page.url()}: ${m.text()}`); });
   const shot = async (name, full = false) => { await page.waitForTimeout(600); await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: full }); };
-  const go = async (path) => { await page.goto(BASE + path, { waitUntil: 'networkidle' }); };
+  const go = async (path) => { log.push(`→ ${path}`); await page.goto(BASE + path, { waitUntil: 'load' }); await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {}); };
   const firstId = async (selector) => {
     const href = await page.locator(selector).first().getAttribute('data-href');
     return href;
@@ -53,14 +55,15 @@ const log = [];
 
   const mob = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'es-ES' });
   const m = await mob.newPage();
+  m.setDefaultTimeout(15000);
   m.on('pageerror', e => log.push(`pageerror móvil ${m.url()}: ${e.message}`));
   for (const [name, path] of [['m-panel', '/'], ['m-facturas', '/Invoices'], ['m-factura', overdue || '/Invoices'], ['m-clientes', '/Clients']]) {
-    await m.goto(BASE + path, { waitUntil: 'networkidle' });
+    await m.goto(BASE + path, { waitUntil: 'load' }); await m.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
     await m.waitForTimeout(600);
     await m.screenshot({ path: `${OUT}/${name}.png` });
   }
 
-  fs.writeFileSync(`${OUT}/log.txt`, log.join('\n') || 'Sin errores de JavaScript');
+  fs.writeFileSync(`${OUT}/log.txt`, log.join('\n'));
   console.log(log.join('\n') || 'Sin errores de JavaScript');
   await browser.close();
-})().catch(e => { console.error(e); fs.writeFileSync(`${OUT}/log.txt`, String(e.stack || e)); process.exit(1); });
+})().catch(e => { console.error(e); fs.writeFileSync(`${OUT}/log.txt`, log.join('\n') + '\n\nERROR: ' + String(e.stack || e)); process.exit(1); });
