@@ -1,0 +1,155 @@
+@model Invoice
+@{
+    ViewData["Title"] = $"Factura {Model.Number}";
+    var culture = new System.Globalization.CultureInfo("es-ES");
+}
+
+<div class="toolbar mb-4">
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="@Url.Action("Index")" class="btn btn-ghost"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+    <a href="@Url.Action("Edit", new{id=Model.Id})" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Editar</a>
+    <a href="@Url.Action("Print", new{id=Model.Id})" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-printer me-1"></i>Imprimir</a>
+  </div>
+
+  <!-- Status change -->
+  <div class="dropdown">
+    <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+      <span class="status-badge status-@Model.Status.ToString().ToLower() me-2">@InvoicesController.StatusLabel(Model.Status)</span>
+      Cambiar estado
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      @foreach (InvoiceStatus s in Enum.GetValues<InvoiceStatus>())
+      {
+        if (s != Model.Status)
+        {
+          <li>
+            <form asp-action="ChangeStatus" method="post" class="d-inline">
+              @Html.AntiForgeryToken()
+              <input type="hidden" name="id" value="@Model.Id" />
+              <input type="hidden" name="status" value="@s" />
+              <button type="submit" class="dropdown-item">
+                <span class="status-badge status-@s.ToString().ToLower() me-2">@InvoicesController.StatusLabel(s)</span>
+              </button>
+            </form>
+          </li>
+        }
+      }
+    </ul>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card-panel">
+      <!-- Invoice header -->
+      <div class="inv-detail-header">
+        <div>
+          <p class="inv-detail-label">Factura</p>
+          <h2 class="inv-detail-number">@Model.Number</h2>
+        </div>
+        <span class="status-badge status-@Model.Status.ToString().ToLower() status-lg">
+          @InvoicesController.StatusLabel(Model.Status)
+        </span>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-sm-6">
+          <p class="detail-label">Cliente</p>
+          <p class="detail-value"><a href="@Url.Action("Details","Clients",new{id=Model.ClientId})">@Model.Client?.Name</a></p>
+          <p class="detail-sub">@Model.Client?.Email</p>
+          @if (!string.IsNullOrEmpty(Model.Client?.Phone)) { <p class="detail-sub">@Model.Client.Phone</p> }
+          @if (!string.IsNullOrEmpty(Model.Client?.TaxId)) { <p class="detail-sub">NIF: @Model.Client.TaxId</p> }
+        </div>
+        <div class="col-sm-3">
+          <p class="detail-label">Fecha emisión</p>
+          <p class="detail-value">@Model.IssueDate.ToString("dd MMM yyyy", culture)</p>
+        </div>
+        <div class="col-sm-3">
+          <p class="detail-label">Vencimiento</p>
+          <p class="detail-value @(Model.Status == InvoiceStatus.Overdue ? "text-danger" : "")">
+            @Model.DueDate.ToString("dd MMM yyyy", culture)
+          </p>
+          @if (Model.Status == InvoiceStatus.Overdue)
+          {
+            <p class="detail-sub text-danger">(@((DateTime.Today - Model.DueDate).Days) días vencida)</p>
+          }
+        </div>
+      </div>
+
+      <!-- Lines table -->
+      <table class="table im-table">
+        <thead>
+          <tr>
+            <th>Descripción</th>
+            <th class="text-center">Qty</th>
+            <th class="text-end">Precio unit.</th>
+            <th class="text-end">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (var line in Model.Lines)
+          {
+            <tr>
+              <td>@line.Description</td>
+              <td class="text-center">@line.Quantity.ToString("G29")</td>
+              <td class="text-end">@line.UnitPrice.ToString("C", culture)</td>
+              <td class="text-end">@line.Total.ToString("C", culture)</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr class="tfoot-subtotal">
+            <td colspan="3" class="text-end">Subtotal</td>
+            <td class="text-end">@Model.Subtotal.ToString("C", culture)</td>
+          </tr>
+          <tr class="tfoot-subtotal">
+            <td colspan="3" class="text-end">IVA (@Model.TaxRate%)</td>
+            <td class="text-end">@Model.TaxAmount.ToString("C", culture)</td>
+          </tr>
+          <tr class="tfoot-total">
+            <td colspan="3" class="text-end">Total</td>
+            <td class="text-end">@Model.Total.ToString("C", culture)</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      @if (!string.IsNullOrWhiteSpace(Model.Notes))
+      {
+        <div class="notes-block">
+          <p class="detail-label">Notas</p>
+          <p class="mb-0">@Model.Notes</p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card-panel">
+      <h3 class="section-heading">Acciones</h3>
+      <div class="d-grid gap-2">
+        <a href="@Url.Action("Print", new{id=Model.Id})" target="_blank" class="btn btn-outline-secondary">
+          <i class="bi bi-printer me-2"></i>Ver / Imprimir PDF
+        </a>
+        <a href="@Url.Action("Edit", new{id=Model.Id})" class="btn btn-outline-secondary">
+          <i class="bi bi-pencil me-2"></i>Editar factura
+        </a>
+        <hr />
+        <form asp-action="Delete" method="post" onsubmit="return confirm('¿Eliminar esta factura permanentemente?')">
+          @Html.AntiForgeryToken()
+          <input type="hidden" name="id" value="@Model.Id" />
+          <button type="submit" class="btn btn-outline-danger w-100">
+            <i class="bi bi-trash me-2"></i>Eliminar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card-panel mt-3">
+      <h3 class="section-heading">Historial</h3>
+      <div class="detail-label">Creada</div>
+      <div class="detail-sub mb-2">@Model.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", culture)</div>
+      <div class="detail-label">Última actualización</div>
+      <div class="detail-sub">@Model.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", culture)</div>
+    </div>
+  </div>
+</div>

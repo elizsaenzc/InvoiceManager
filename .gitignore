@@ -1,0 +1,14 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# Local SQLite database (created and seeded on startup)
+*.db
+*.db-shm
+*.db-wal

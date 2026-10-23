@@ -1,0 +1,68 @@
+@model IEnumerable<Client>
+@{
+    ViewData["Title"] = "Clientes";
+    var culture = new System.Globalization.CultureInfo("es-ES");
+}
+
+<div class="toolbar mb-4">
+  <form method="get" class="d-flex gap-2">
+    <div class="search-wrap">
+      <i class="bi bi-search search-icon"></i>
+      <input type="text" name="search" value="@ViewBag.Search"
+             class="form-control search-input" placeholder="Nombre o email…" />
+    </div>
+    <button type="submit" class="btn btn-outline-secondary">Buscar</button>
+    @if (!string.IsNullOrEmpty(ViewBag.Search as string))
+    {
+      <a href="@Url.Action("Index")" class="btn btn-ghost">Limpiar</a>
+    }
+  </form>
+  <a href="@Url.Action("Create")" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Nuevo cliente
+  </a>
+</div>
+
+<div class="row g-3">
+  @foreach (var client in Model)
+  {
+    <div class="col-md-6 col-xl-4">
+      <div class="client-card">
+        <div class="client-avatar">@client.Name[0].ToString().ToUpper()</div>
+        <div class="client-info">
+          <h3 class="client-name">@client.Name</h3>
+          <p class="client-email"><i class="bi bi-envelope me-1"></i>@client.Email</p>
+          @if (!string.IsNullOrEmpty(client.Phone)) {
+            <p class="client-email"><i class="bi bi-telephone me-1"></i>@client.Phone</p>
+          }
+        </div>
+        <div class="client-stats">
+          <div class="client-stat">
+            <span class="stat-val">@client.Invoices.Count</span>
+            <span class="stat-label">facturas</span>
+          </div>
+          <div class="client-stat">
+            <span class="stat-val">@client.Invoices.Where(i => i.Status == InvoiceStatus.Paid).Count()</span>
+            <span class="stat-label">pagadas</span>
+          </div>
+        </div>
+        <div class="client-actions">
+          <a href="@Url.Action("Details", new{id=client.Id})" class="btn btn-icon"><i class="bi bi-eye"></i></a>
+          <a href="@Url.Action("Edit", new{id=client.Id})" class="btn btn-icon"><i class="bi bi-pencil"></i></a>
+          <form asp-action="Delete" method="post" class="d-inline"
+                onsubmit="return confirm('¿Eliminar cliente @client.Name? Se eliminarán también sus facturas.')">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@client.Id" />
+            <button class="btn btn-icon text-danger"><i class="bi bi-trash"></i></button>
+          </form>
+        </div>
+      </div>
+    </div>
+  }
+  @if (!Model.Any())
+  {
+    <div class="col-12 text-center py-5 text-muted">
+      <i class="bi bi-people fs-1 d-block mb-2"></i>
+      Sin clientes todavía. <a href="@Url.Action("Create")">Añade el primero.</a>
+    </div>
+  }
+</div>

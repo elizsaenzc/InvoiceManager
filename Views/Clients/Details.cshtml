@@ -1,0 +1,69 @@
+@model Client
+@{
+    ViewData["Title"] = Model.Name;
+    var culture = new System.Globalization.CultureInfo("es-ES");
+}
+
+<div class="toolbar mb-4">
+  <a href="@Url.Action("Index")" class="btn btn-ghost"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+  <a href="@Url.Action("Edit", new{id=Model.Id})" class="btn btn-outline-secondary">
+    <i class="bi bi-pencil me-1"></i>Editar
+  </a>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card-panel text-center">
+      <div class="client-avatar-lg">@Model.Name[0].ToString().ToUpper()</div>
+      <h2 class="mt-3 mb-1 fs-5">@Model.Name</h2>
+      <p class="text-muted small mb-3">@Model.Email</p>
+      @if (!string.IsNullOrEmpty(Model.TaxId)) { <p class="text-muted small">NIF: @Model.TaxId</p> }
+      @if (!string.IsNullOrEmpty(Model.Phone))  { <p class="text-muted small"><i class="bi bi-telephone me-1"></i>@Model.Phone</p> }
+      @if (!string.IsNullOrEmpty(Model.Address)) { <p class="text-muted small"><i class="bi bi-geo-alt me-1"></i>@Model.Address</p> }
+    </div>
+
+    <div class="card-panel mt-3">
+      <h3 class="section-heading">Resumen</h3>
+      <div class="summary-block">
+        <div class="summary-row"><span>Total facturas</span><span>@Model.Invoices.Count</span></div>
+        <div class="summary-row"><span>Pagadas</span><span class="text-success">@Model.Invoices.Count(i => i.Status == InvoiceStatus.Paid)</span></div>
+        <div class="summary-row"><span>Pendientes</span><span class="text-warning">@Model.Invoices.Count(i => i.Status == InvoiceStatus.Pending)</span></div>
+        <div class="summary-row summary-total">
+          <span>Facturado total</span>
+          <span>@Model.Invoices.Sum(i => i.Lines.Sum(l => l.Quantity * l.UnitPrice)).ToString("C", culture)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Facturas de @Model.Name</h2>
+        <a href="@Url.Action("Create","Invoices")" class="btn btn-primary btn-sm">
+          <i class="bi bi-plus me-1"></i>Nueva factura
+        </a>
+      </div>
+      <table class="table im-table">
+        <thead>
+          <tr><th>Número</th><th>Fecha</th><th class="text-end">Total</th><th>Estado</th></tr>
+        </thead>
+        <tbody>
+          @foreach (var inv in Model.Invoices.OrderByDescending(i => i.IssueDate))
+          {
+            <tr onclick="location.href='@Url.Action("Details","Invoices",new{id=inv.Id})'" style="cursor:pointer">
+              <td><span class="inv-number">@inv.Number</span></td>
+              <td>@inv.IssueDate.ToString("dd/MM/yyyy")</td>
+              <td class="text-end">@inv.Lines.Sum(l => l.Quantity * l.UnitPrice * (1 + inv.TaxRate / 100)).ToString("C", culture)</td>
+              <td><span class="status-badge status-@inv.Status.ToString().ToLower()">@InvoiceManager.Controllers.InvoicesController.StatusLabel(inv.Status)</span></td>
+            </tr>
+          }
+          @if (!Model.Invoices.Any())
+          {
+            <tr><td colspan="4" class="text-muted text-center py-4">Sin facturas para este cliente.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

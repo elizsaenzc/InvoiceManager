@@ -1,0 +1,83 @@
+@model IEnumerable<Invoice>
+@{
+    ViewData["Title"] = "Facturas";
+}
+
+<div class="toolbar mb-4">
+  <form method="get" class="d-flex gap-2 flex-wrap">
+    <div class="search-wrap">
+      <i class="bi bi-search search-icon"></i>
+      <input type="text" name="search" value="@ViewBag.Search"
+             class="form-control search-input" placeholder="Número o cliente…" />
+    </div>
+    <select name="status" class="form-select filter-select">
+      <option value="">Todos los estados</option>
+      @foreach (var s in (IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)ViewBag.Statuses)
+      {
+        <option value="@s.Value" selected="@(s.Value == ViewBag.StatusFilter)">@s.Text</option>
+      }
+    </select>
+    <button type="submit" class="btn btn-outline-secondary">Filtrar</button>
+    <a href="@Url.Action("Index")" class="btn btn-ghost">Limpiar</a>
+  </form>
+  <a href="@Url.Action("Create")" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Nueva factura
+  </a>
+</div>
+
+<div class="card-panel p-0">
+  <div class="table-responsive">
+    <table class="table im-table mb-0">
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Cliente</th>
+          <th>Emisión</th>
+          <th>Vencimiento</th>
+          <th class="text-end">Subtotal</th>
+          <th class="text-end">Total</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var inv in Model)
+        {
+          <tr class="@(inv.Status == InvoiceStatus.Overdue ? "row-overdue" : "")">
+            <td><span class="inv-number">@inv.Number</span></td>
+            <td>@inv.Client?.Name</td>
+            <td>@inv.IssueDate.ToString("dd/MM/yyyy")</td>
+            <td class="@(inv.IsOverdue || inv.Status == InvoiceStatus.Overdue ? "text-danger fw-500" : "")">
+              @inv.DueDate.ToString("dd/MM/yyyy")
+            </td>
+            <td class="text-end">@inv.Subtotal.ToString("C", new System.Globalization.CultureInfo("es-ES"))</td>
+            <td class="text-end fw-500">@inv.Total.ToString("C", new System.Globalization.CultureInfo("es-ES"))</td>
+            <td><span class="status-badge status-@inv.Status.ToString().ToLower()">@InvoicesController.StatusLabel(inv.Status)</span></td>
+            <td class="text-end">
+              <div class="btn-group btn-group-sm">
+                <a href="@Url.Action("Details", new{id=inv.Id})" class="btn btn-icon" title="Ver detalle">
+                  <i class="bi bi-eye"></i>
+                </a>
+                <a href="@Url.Action("Edit", new{id=inv.Id})" class="btn btn-icon" title="Editar">
+                  <i class="bi bi-pencil"></i>
+                </a>
+                <a href="@Url.Action("Print", new{id=inv.Id})" target="_blank" class="btn btn-icon" title="Imprimir">
+                  <i class="bi bi-printer"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+        }
+        @if (!Model.Any())
+        {
+          <tr>
+            <td colspan="8" class="text-center text-muted py-5">
+              <i class="bi bi-file-earmark-x fs-2 d-block mb-2"></i>
+              Sin resultados. <a href="@Url.Action("Create")">Crea tu primera factura.</a>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

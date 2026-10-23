@@ -1,0 +1,149 @@
+@model Invoice
+@{
+    ViewData["Title"] = $"Factura {Model.Number}";
+    Layout = null;
+    var culture = new System.Globalization.CultureInfo("es-ES");
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Factura @Model.Number</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; font-size: 13px; color: #1a1a1a; background: #f4f5f7; }
+    .page { background: #fff; width: 794px; min-height: 1123px; margin: 0 auto; padding: 60px 64px; }
+
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 48px; }
+    .company-name { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+    .company-sub { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.7; }
+    .inv-badge { text-align: right; }
+    .inv-badge .label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #888; }
+    .inv-badge .number { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; margin-top: 2px; }
+
+    .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 500; margin-top: 6px; }
+    .status-pending   { background: #FEF3C7; color: #92400E; }
+    .status-paid      { background: #D1FAE5; color: #065F46; }
+    .status-overdue   { background: #FEE2E2; color: #991B1B; }
+    .status-draft     { background: #F3F4F6; color: #374151; }
+    .status-cancelled { background: #F3F4F6; color: #6B7280; }
+
+    .meta { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; padding: 24px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee; margin-bottom: 40px; }
+    .meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #888; margin-bottom: 4px; }
+    .meta-value { font-size: 13px; font-weight: 500; }
+    .meta-sub { font-size: 12px; color: #666; margin-top: 2px; }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    thead th { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #888; padding: 0 8px 10px; border-bottom: 1px solid #eee; }
+    tbody td { padding: 12px 8px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+
+    tfoot td { padding: 8px; }
+    .tfoot-sub td { font-size: 12px; color: #666; }
+    .tfoot-total td { font-size: 15px; font-weight: 600; padding-top: 12px; border-top: 2px solid #1a1a1a; }
+
+    .notes { margin-top: 32px; padding: 16px; background: #f9f9f9; border-radius: 8px; }
+    .notes-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #888; margin-bottom: 6px; }
+
+    .print-actions { display: flex; gap: 12px; justify-content: center; padding: 24px; position: fixed; bottom: 0; right: 0; }
+    .btn-print { padding: 10px 24px; background: #1a1a1a; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; }
+    .btn-close-win { padding: 10px 24px; background: #fff; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; }
+
+    @@media print {
+      body { background: #fff; }
+      .print-actions { display: none; }
+      .page { padding: 40px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="company-name">ESC Solutions S.L.</div>
+      <div class="company-sub">
+        Calle Principal 1, 15001 A Coruña<br>
+        NIF: B00000001 · facturacion@escsolutions.es
+      </div>
+    </div>
+    <div class="inv-badge">
+      <div class="label">Factura</div>
+      <div class="number">@Model.Number</div>
+      <span class="status-pill status-@Model.Status.ToString().ToLower()">
+        @InvoiceManager.Controllers.InvoicesController.StatusLabel(Model.Status)
+      </span>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div>
+      <div class="meta-label">Facturado a</div>
+      <div class="meta-value">@Model.Client?.Name</div>
+      @if (!string.IsNullOrEmpty(Model.Client?.TaxId)) { <div class="meta-sub">NIF: @Model.Client.TaxId</div> }
+      @if (!string.IsNullOrEmpty(Model.Client?.Address)) { <div class="meta-sub">@Model.Client.Address</div> }
+      <div class="meta-sub">@Model.Client?.Email</div>
+    </div>
+    <div>
+      <div class="meta-label">Fecha de emisión</div>
+      <div class="meta-value">@Model.IssueDate.ToString("dd MMMM yyyy", culture)</div>
+    </div>
+    <div>
+      <div class="meta-label">Fecha de vencimiento</div>
+      <div class="meta-value">@Model.DueDate.ToString("dd MMMM yyyy", culture)</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align:left">Descripción</th>
+        <th class="text-center">Qty</th>
+        <th class="text-right">Precio unit.</th>
+        <th class="text-right">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach (var line in Model.Lines)
+      {
+        <tr>
+          <td>@line.Description</td>
+          <td class="text-center">@line.Quantity.ToString("G29")</td>
+          <td class="text-right">@line.UnitPrice.ToString("C", culture)</td>
+          <td class="text-right">@line.Total.ToString("C", culture)</td>
+        </tr>
+      }
+    </tbody>
+    <tfoot>
+      <tr class="tfoot-sub">
+        <td colspan="3" class="text-right">Subtotal</td>
+        <td class="text-right">@Model.Subtotal.ToString("C", culture)</td>
+      </tr>
+      <tr class="tfoot-sub">
+        <td colspan="3" class="text-right">IVA (@Model.TaxRate%)</td>
+        <td class="text-right">@Model.TaxAmount.ToString("C", culture)</td>
+      </tr>
+      <tr class="tfoot-total">
+        <td colspan="3" class="text-right">Total</td>
+        <td class="text-right">@Model.Total.ToString("C", culture)</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  @if (!string.IsNullOrWhiteSpace(Model.Notes))
+  {
+    <div class="notes">
+      <div class="notes-label">Notas</div>
+      <p>@Model.Notes</p>
+    </div>
+  }
+</div>
+
+<div class="print-actions">
+  <button class="btn-close-win" onclick="window.close()">Cerrar</button>
+  <button class="btn-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+</div>
+</body>
+</html>
