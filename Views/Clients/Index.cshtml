@@ -1,68 +1,70 @@
-@model IEnumerable<Client>
+@model List<ClientListItem>
 @{
     ViewData["Title"] = "Clientes";
-    var culture = new System.Globalization.CultureInfo("es-ES");
+    var q = (string?)ViewBag.Q;
+    var sort = (string)ViewBag.Sort;
+    var sorts = new (string Key, string Label)[] { ("nombre", "Nombre"), ("facturado", "Más facturado"), ("pendiente", "Pendiente de cobro") };
 }
 
-<div class="toolbar mb-4">
-  <form method="get" class="d-flex gap-2">
-    <div class="search-wrap">
-      <i class="bi bi-search search-icon"></i>
-      <input type="text" name="search" value="@ViewBag.Search"
-             class="form-control search-input" placeholder="Nombre o email…" />
-    </div>
-    <button type="submit" class="btn btn-outline-secondary">Buscar</button>
-    @if (!string.IsNullOrEmpty(ViewBag.Search as string))
-    {
-      <a href="@Url.Action("Index")" class="btn btn-ghost">Limpiar</a>
-    }
-  </form>
-  <a href="@Url.Action("Create")" class="btn btn-primary">
-    <i class="bi bi-plus-lg me-1"></i>Nuevo cliente
-  </a>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Clientes</h1>
+    <div class="page-sub">@Model.Count clientes · @Fmt.Eur(Model.Sum(c => c.Outstanding)) pendiente de cobro</div>
+  </div>
+  <a href="@Url.Action("Create")" class="btn btn-primary"><i class="bi bi-person-plus"></i>Nuevo cliente</a>
 </div>
 
-<div class="row g-3">
-  @foreach (var client in Model)
-  {
-    <div class="col-md-6 col-xl-4">
-      <div class="client-card">
-        <div class="client-avatar">@client.Name[0].ToString().ToUpper()</div>
-        <div class="client-info">
-          <h3 class="client-name">@client.Name</h3>
-          <p class="client-email"><i class="bi bi-envelope me-1"></i>@client.Email</p>
-          @if (!string.IsNullOrEmpty(client.Phone)) {
-            <p class="client-email"><i class="bi bi-telephone me-1"></i>@client.Phone</p>
-          }
-        </div>
-        <div class="client-stats">
-          <div class="client-stat">
-            <span class="stat-val">@client.Invoices.Count</span>
-            <span class="stat-label">facturas</span>
-          </div>
-          <div class="client-stat">
-            <span class="stat-val">@client.Invoices.Where(i => i.Status == InvoiceStatus.Paid).Count()</span>
-            <span class="stat-label">pagadas</span>
-          </div>
-        </div>
-        <div class="client-actions">
-          <a href="@Url.Action("Details", new{id=client.Id})" class="btn btn-icon"><i class="bi bi-eye"></i></a>
-          <a href="@Url.Action("Edit", new{id=client.Id})" class="btn btn-icon"><i class="bi bi-pencil"></i></a>
-          <form asp-action="Delete" method="post" class="d-inline"
-                onsubmit="return confirm('¿Eliminar cliente @client.Name? Se eliminarán también sus facturas.')">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="id" value="@client.Id" />
-            <button class="btn btn-icon text-danger"><i class="bi bi-trash"></i></button>
-          </form>
-        </div>
-      </div>
-    </div>
-  }
-  @if (!Model.Any())
-  {
-    <div class="col-12 text-center py-5 text-muted">
-      <i class="bi bi-people fs-1 d-block mb-2"></i>
-      Sin clientes todavía. <a href="@Url.Action("Create")">Añade el primero.</a>
-    </div>
-  }
+<div class="filters">
+  <form method="get" class="search" style="width:min(340px,100%)">
+    <i class="bi bi-search"></i>
+    <input type="search" name="q" value="@q" placeholder="Nombre, NIF, población o contacto" aria-label="Buscar clientes" />
+    <input type="hidden" name="sort" value="@sort" />
+  </form>
+  <nav class="segmented" aria-label="Ordenar">
+    @foreach (var (key, label) in sorts)
+    {
+      <a href="@Url.Action("Index", new { q, sort = key })" class="@(sort == key ? "active" : "")">@label</a>
+    }
+  </nav>
 </div>
+
+@if (!Model.Any())
+{
+  <div class="card-ios empty">
+    <i class="bi bi-people"></i>
+    @(string.IsNullOrEmpty(q) ? "Todavía no hay clientes." : $"Ningún cliente coincide con «{q}».")
+  </div>
+}
+else
+{
+  <div class="row g-3">
+    @foreach (var item in Model)
+    {
+      var c = item.Client;
+      <div class="col-md-6 col-xxl-4">
+        <a class="card-ios client-card" href="@Url.Action("Details", new { id = c.Id })">
+          <div class="d-flex gap-3 align-items-center">
+            <span class="avatar lg @Fmt.AvatarTone(c.Id)" style="width:48px;height:48px;font-size:17px">@c.Initials</span>
+            <div class="flex-grow-1 min-w-0" style="min-width:0">
+              <div class="fw-600 text-truncate">@c.Name</div>
+              <div class="small-2 muted text-truncate">@(c.ContactName ?? c.Email)@(string.IsNullOrEmpty(c.City) ? "" : " · " + c.City.Split(' ', 2).Last())</div>
+            </div>
+            @if (item.OverdueCount > 0)
+            {
+              <span class="pill pill-overdue"><i class="bi bi-exclamation-circle-fill"></i>@item.OverdueCount</span>
+            }
+          </div>
+          <div class="client-stats">
+            <div><div class="v">@Fmt.EurShort(item.Invoiced)</div><div class="k">Facturado</div></div>
+            <div><div class="v @(item.Outstanding > 0 ? "" : "muted")">@Fmt.EurShort(item.Outstanding)</div><div class="k">Pendiente</div></div>
+            <div><div class="v">@item.InvoiceCount</div><div class="k">Facturas</div></div>
+          </div>
+          <div class="small-2 muted d-flex justify-content-between">
+            <span>Pago a @(c.PaymentTermsDays == 0 ? "contado" : $"{c.PaymentTermsDays} días")</span>
+            <span>@(item.LastInvoice is DateTime d ? $"Última factura {Fmt.DateShort(d)}" : "Sin facturas")</span>
+          </div>
+        </a>
+      </div>
+    }
+  </div>
+}

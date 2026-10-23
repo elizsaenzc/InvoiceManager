@@ -1,0 +1,136 @@
+@model Invoice
+@{
+    var clients = (List<Client>)ViewBag.ClientOptions;
+    var concepts = (List<KeyValuePair<string, decimal>>)ViewBag.Concepts;
+    var isNew = Model.Id == 0;
+    var issued = !isNew && !Model.IsDraft;
+    var lineErrors = ViewData.ModelState
+        .Where(kv => kv.Key.StartsWith("Lines"))
+        .SelectMany(kv => kv.Value!.Errors.Select(e => e.ErrorMessage))
+        .Where(m => !string.IsNullOrEmpty(m))
+        .Distinct().ToList();
+    var lines = Model.Lines.Any() ? Model.Lines : new List<InvoiceLine> { new() };
+}
+
+<form action="@(isNew ? Url.Action("Create") : Url.Action("Edit", new { id = Model.Id }))" method="post" id="invoice-form" novalidate>
+  @Html.AntiForgeryToken()
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card-ios card-pad mb-3">
+        <h2 class="card-title mb-3">Datos de la factura</h2>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label asp-for="ClientId" class="form-label">Cliente</label>
+            <select asp-for="ClientId" class="form-select" id="client">
+              <option value="0">Selecciona un cliente…</option>
+              @foreach (var c in clients)
+              {
+                <option value="@c.Id" data-terms="@c.PaymentTermsDays">@c.Name</option>
+              }
+            </select>
+            <span asp-validation-for="ClientId" class="text-danger"></span>
+            <div class="form-hint">¿Cliente nuevo? <a href="@Url.Action("Create", "Clients")">Darlo de alta</a></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label asp-for="IssueDate" class="form-label">Fecha de emisión</label>
+            <input asp-for="IssueDate" type="date" class="form-control" id="issue-date" />
+            <span asp-validation-for="IssueDate" class="text-danger"></span>
+          </div>
+          <div class="col-6 col-md-3">
+            <label asp-for="DueDate" class="form-label">Vencimiento</label>
+            <input asp-for="DueDate" type="date" class="form-control" id="due-date" />
+            <span asp-validation-for="DueDate" class="text-danger"></span>
+          </div>
+          <div class="col-12">
+            <span class="form-label me-2">Plazo de pago</span>
+            <div class="segmented" id="terms">
+              @foreach (var d in new[] { 0, 15, 30, 45, 60 })
+              {
+                <a href="#" data-days="@d">@(d == 0 ? "Al contado" : $"{d} días")</a>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-ios card-pad mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="card-title">Conceptos</h2>
+          <span class="small-2 muted">Escribe para ver servicios facturados antes</span>
+        </div>
+        <div class="lines-header lines-grid">
+          <span>Concepto</span><span class="text-center">Cantidad</span><span class="text-end">Precio</span><span class="text-end">Importe</span><span></span>
+        </div>
+        <div id="lines">
+          @for (var i = 0; i < lines.Count; i++)
+          {
+            <partial name="_InvoiceLine" model="Tuple.Create(lines[i], i.ToString())" />
+          }
+        </div>
+        @foreach (var e in lineErrors)
+        {
+          <div class="text-danger mt-1">@e</div>
+        }
+        <button type="button" id="add-line" class="btn btn-tinted btn-sm mt-3"><i class="bi bi-plus-lg"></i>Añadir concepto</button>
+      </div>
+
+      <div class="card-ios card-pad">
+        <label asp-for="Notes" class="form-label">Notas para el cliente</label>
+        <textarea asp-for="Notes" class="form-control" rows="3" maxlength="500" placeholder="Referencia de pedido, condiciones particulares…"></textarea>
+        <span asp-validation-for="Notes" class="text-danger"></span>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card-ios card-pad sticky-side">
+        <h2 class="card-title mb-3">Resumen</h2>
+        <label asp-for="TaxRate" class="form-label">Tipo de IVA</label>
+        <select name="TaxRate" class="form-select mb-1" id="tax-rate">
+          @foreach (var (rate, label) in new[] { (21m, "general"), (10m, "reducido"), (4m, "superreducido"), (0m, "exento") })
+          {
+            <!option value="@((int)rate)" selected="@(Model.TaxRate == rate)">@((int)rate) % · @label</!option>
+          }
+        </select>
+        <span asp-validation-for="TaxRate" class="text-danger"></span>
+
+        <div class="summary mt-3">
+          <div class="r"><span class="muted">Base imponible</span><span id="s-base">0,00 €</span></div>
+          <div class="r"><span class="muted">IVA <span id="s-rate">21</span> %</span><span id="s-tax">0,00 €</span></div>
+          <div class="r total"><span>Total</span><span id="s-total">0,00 €</span></div>
+        </div>
+
+        <div class="d-grid gap-2 mt-4">
+          @if (issued)
+          {
+            <button type="submit" name="submit" value="save" class="btn btn-primary btn-lg">Guardar cambios</button>
+            <div class="form-hint text-center">La factura conserva su número @Model.Number.</div>
+          }
+          else
+          {
+            <button type="submit" name="submit" value="issue" class="btn btn-primary btn-lg"><i class="bi bi-send"></i>Emitir factura</button>
+            <button type="submit" name="submit" value="draft" class="btn btn-gray">Guardar como borrador</button>
+            <div class="form-hint text-center">Al emitirla se le asigna el siguiente número de la serie.</div>
+          }
+          <a href="@(isNew ? Url.Action("Index") : Url.Action("Details", new { id = Model.Id }))" class="btn btn-plain">Cancelar</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<template id="line-template">
+  <partial name="_InvoiceLine" model='Tuple.Create(new InvoiceLine(), "__i__")' />
+</template>
+
+<datalist id="concepts">
+  @foreach (var c in concepts)
+  {
+    <option value="@c.Key"></option>
+  }
+</datalist>
+
+<script>
+  window.INVOICE_CONCEPTS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(concepts.ToDictionary(c => c.Key, c => c.Value)));
+</script>
+<script src="~/js/invoice-form.js" asp-append-version="true"></script>

@@ -13,23 +13,22 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Invoice>()
-            .Property(i => i.TaxRate)
-            .HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<Invoice>(e =>
+        {
+            e.Property(i => i.TaxRate).HasColumnType("decimal(5,2)");
+            // Un número de factura no puede repetirse (los borradores no tienen número)
+            e.HasIndex(i => i.Number).IsUnique().HasFilter("\"Number\" <> ''");
+            e.HasMany(i => i.Lines).WithOne(l => l.Invoice!).HasForeignKey(l => l.InvoiceId)
+             .OnDelete(DeleteBehavior.Cascade);
+            // Un cliente con facturas no se borra en cascada: se bloquea desde el controlador
+            e.HasOne(i => i.Client).WithMany(c => c.Invoices).HasForeignKey(i => i.ClientId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
 
-        modelBuilder.Entity<InvoiceLine>()
-            .Property(l => l.Quantity)
-            .HasColumnType("decimal(10,2)");
-
-        modelBuilder.Entity<InvoiceLine>()
-            .Property(l => l.UnitPrice)
-            .HasColumnType("decimal(10,2)");
-
-        // Seed data
-        modelBuilder.Entity<Client>().HasData(
-            new Client { Id = 1, Name = "Acme Corp S.L.", Email = "contacto@acme.es", Phone = "+34 91 123 4567", Address = "Calle Gran Vía 45, Madrid", TaxId = "B12345678", CreatedAt = DateTime.UtcNow },
-            new Client { Id = 2, Name = "Inversiones Norte S.A.", Email = "admin@invertnorte.com", Phone = "+34 93 987 6543", Address = "Paseo de Gracia 10, Barcelona", TaxId = "A87654321", CreatedAt = DateTime.UtcNow },
-            new Client { Id = 3, Name = "TechStart Galicia", Email = "hola@techstart.gal", Phone = "+34 981 456 789", Address = "Rúa Real 22, A Coruña", TaxId = "B11223344", CreatedAt = DateTime.UtcNow }
-        );
+        modelBuilder.Entity<InvoiceLine>(e =>
+        {
+            e.Property(l => l.Quantity).HasColumnType("decimal(10,2)");
+            e.Property(l => l.UnitPrice).HasColumnType("decimal(10,2)");
+        });
     }
 }

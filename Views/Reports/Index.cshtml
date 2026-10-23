@@ -1,0 +1,98 @@
+@model TaxReportViewModel
+@{
+    ViewData["Title"] = "IVA trimestral";
+}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">IVA trimestral</h1>
+    <div class="page-sub">IVA repercutido en facturas emitidas · base para el modelo 303</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    @if (Model.Years.Count > 1)
+    {
+      <nav class="segmented" aria-label="Año">
+        @foreach (var y in Model.Years)
+        {
+          <a href="@Url.Action("Index", new { year = y })" class="@(y == Model.Year ? "active" : "")">@y</a>
+        }
+      </nav>
+    }
+    <a href="@Url.Action("Export", new { year = Model.Year })" class="btn btn-gray"><i class="bi bi-download"></i>Libro de facturas emitidas</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  @foreach (var q in Model.Quarters)
+  {
+    <div class="col-6 col-xl-3">
+      <div class="card-ios quarter @(q.IsCurrent ? "current" : "")">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="q">@(q.Quarter)T @Model.Year</span>
+          @if (q.IsCurrent) { <span class="pill pill-pending">En curso</span> }
+          else if (q.Invoices == 0) { <span class="small-2 muted">Sin actividad</span> }
+        </div>
+        <div class="kpi-label">Cuota de IVA</div>
+        <div class="big">@Fmt.Eur(q.Tax)</div>
+        <div class="small-2 muted mt-1">Base @Fmt.Eur(q.Base) · @q.Invoices facturas</div>
+        <div class="small-2 muted text-capitalize">@q.Period</div>
+      </div>
+    </div>
+  }
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card-ios">
+      <div class="card-head"><h2 class="card-title">Resumen @Model.Year</h2></div>
+      <div class="table-responsive">
+        <table class="table-ios">
+          <thead><tr><th>Trimestre</th><th class="num">Facturas</th><th class="num">Base imponible</th><th class="num">Cuota IVA</th><th class="num hide-sm">Cobrado</th></tr></thead>
+          <tbody>
+            @foreach (var q in Model.Quarters)
+            {
+              <tr>
+                <td class="fw-600">@(q.Quarter)T <span class="muted fw-normal small-2 text-capitalize">@q.Period</span></td>
+                <td class="num">@q.Invoices</td>
+                <td class="num">@Fmt.Eur(q.Base)</td>
+                <td class="num fw-600">@Fmt.Eur(q.Tax)</td>
+                <td class="num hide-sm muted">@Fmt.Eur(q.Collected)</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td class="fw-600 pt-3">Total</td>
+              <td class="num fw-600 pt-3">@Model.TotalInvoices</td>
+              <td class="num fw-600 pt-3">@Fmt.Eur(Model.TotalBase)</td>
+              <td class="num fw-600 pt-3">@Fmt.Eur(Model.TotalTax)</td>
+              <td class="num fw-600 pt-3 hide-sm">@Fmt.Eur(Model.TotalCollected)</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card-ios mb-3">
+      <div class="card-head"><h2 class="card-title">Por tipo de IVA</h2></div>
+      <ul class="list-ios plain">
+        @foreach (var r in Model.ByRate)
+        {
+          <li>
+            <div class="row-item">
+              <span class="grow"><span class="title d-block">IVA @Fmt.Pct(r.Rate)</span><span class="sub d-block">Base @Fmt.Eur(r.Base)</span></span>
+              <span class="end fw-600 tnum">@Fmt.Eur(r.Tax)</span>
+            </div>
+          </li>
+        }
+        @if (!Model.ByRate.Any()) { <li><div class="row-item muted">Sin facturas emitidas este año.</div></li> }
+      </ul>
+    </div>
+    <div class="card-ios card-pad small-2 muted">
+      <i class="bi bi-info-circle me-1"></i>
+      Se incluyen las facturas emitidas por fecha de emisión (criterio de devengo). Las anuladas y los borradores no computan.
+      Revisa las cifras con tu asesoría antes de presentar el modelo.
+    </div>
+  </div>
+</div>

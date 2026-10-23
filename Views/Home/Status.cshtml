@@ -1,0 +1,10 @@
+@model int
+@{
+    ViewData["Title"] = Model == 404 ? "Página no encontrada" : "Error";
+}
+<div class="card-ios card-pad text-center mx-auto mt-4" style="max-width:460px">
+  <span class="app-ico lg @(Model == 404 ? "bg-gray" : "bg-red") mb-3"><i class="bi @(Model == 404 ? "bi-question-lg" : "bi-exclamation-lg")"></i></span>
+  <h1 class="h4 fw-bold mb-2">@(Model == 404 ? "No hemos encontrado esta página" : "Algo no ha ido bien")</h1>
+  <p class="muted">@(Model == 404 ? "Puede que la factura o el cliente se hayan eliminado." : "Se ha registrado el error. Vuelve a intentarlo en unos segundos.")</p>
+  <a href="@Url.Action("Index", "Home")" class="btn btn-primary mt-2">Ir al panel</a>
+</div>

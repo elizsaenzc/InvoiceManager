@@ -8,3 +8,4 @@ obj/
 Dockerfile
 .dockerignore
 README.md
+.github/

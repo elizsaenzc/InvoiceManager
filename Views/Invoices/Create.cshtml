@@ -1,91 +1,15 @@
 @model Invoice
 @{
-    ViewData["Title"] = "Nueva Factura";
+    ViewData["Title"] = "Nueva factura";
 }
-
-<form asp-action="Create" method="post" id="invoice-form">
-  @Html.AntiForgeryToken()
-
-  <div class="row g-4">
-    <!-- Left column -->
-    <div class="col-lg-8">
-      <!-- Header fields -->
-      <div class="card-panel mb-4">
-        <h2 class="section-heading">Datos generales</h2>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label asp-for="ClientId" class="form-label">Cliente</label>
-            <select asp-for="ClientId" asp-items="ViewBag.Clients" class="form-select">
-              <option value="">— Selecciona un cliente —</option>
-            </select>
-            <span asp-validation-for="ClientId" class="text-danger small"></span>
-          </div>
-          <div class="col-md-3">
-            <label asp-for="IssueDate" class="form-label">Fecha emisión</label>
-            <input asp-for="IssueDate" type="date" class="form-control" />
-            <span asp-validation-for="IssueDate" class="text-danger small"></span>
-          </div>
-          <div class="col-md-3">
-            <label asp-for="DueDate" class="form-label">Vencimiento</label>
-            <input asp-for="DueDate" type="date" class="form-control" />
-            <span asp-validation-for="DueDate" class="text-danger small"></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lines -->
-      <div class="card-panel mb-4">
-        <h2 class="section-heading">Líneas de factura</h2>
-        <div id="lines-container">
-          <div class="lines-header d-none d-md-grid lines-grid">
-            <span>Descripción</span><span class="text-center">Cantidad</span><span class="text-end">Precio unit.</span><span class="text-end">Total</span><span></span>
-          </div>
-          @for (int i = 0; i < Model.Lines.Count; i++)
-          {
-            <partial name="_InvoiceLine" model="new Tuple<InvoiceLine, int>(Model.Lines.ElementAt(i), i)" />
-          }
-        </div>
-        <button type="button" id="add-line" class="btn btn-outline-secondary btn-sm mt-3">
-          <i class="bi bi-plus me-1"></i>Añadir línea
-        </button>
-        <span id="lines-error" class="text-danger small d-block mt-1"></span>
-      </div>
-
-      <div class="card-panel mb-4">
-        <label asp-for="Notes" class="form-label">Notas / observaciones</label>
-        <textarea asp-for="Notes" class="form-control" rows="3" placeholder="Condiciones de pago, información adicional…"></textarea>
-      </div>
-    </div>
-
-    <!-- Right column - Summary -->
-    <div class="col-lg-4">
-      <div class="card-panel sticky-top" style="top:1rem">
-        <h2 class="section-heading">Resumen</h2>
-        <div class="mb-3">
-          <label asp-for="TaxRate" class="form-label">IVA (%)</label>
-          <input asp-for="TaxRate" type="number" min="0" max="100" step="1" class="form-control" id="tax-rate" />
-        </div>
-        <div class="summary-block">
-          <div class="summary-row"><span>Subtotal</span><span id="s-subtotal">0,00 €</span></div>
-          <div class="summary-row"><span>IVA (<span id="s-tax-pct">21</span>%)</span><span id="s-tax">0,00 €</span></div>
-          <div class="summary-row summary-total"><span>Total</span><span id="s-total">0,00 €</span></div>
-        </div>
-        <div class="d-grid gap-2 mt-4">
-          <button type="submit" class="btn btn-primary btn-lg">
-            <i class="bi bi-check-lg me-2"></i>Crear factura
-          </button>
-          <a href="@Url.Action("Index")" class="btn btn-ghost">Cancelar</a>
-        </div>
-      </div>
-    </div>
+<div class="page-head">
+  <div>
+    <a href="@Url.Action("Index")" class="back-link"><i class="bi bi-chevron-left"></i>Facturas</a>
+    <h1 class="page-title">Nueva factura</h1>
+    @if (ViewBag.CopyOf is string copy)
+    {
+      <div class="page-sub">Copia de @copy con fecha de hoy</div>
+    }
   </div>
-</form>
-
-<!-- Line template (hidden) -->
-<template id="line-template">
-  <partial name="_InvoiceLine" model="new Tuple<InvoiceLine, int>(new InvoiceLine(), -1)" />
-</template>
-
-@section Scripts {
-<script src="~/js/invoice-form.js"></script>
-}
+</div>
+<partial name="_InvoiceForm" model="Model" />
