@@ -223,19 +223,22 @@ a:hover { color: var(--ios-blue); }
 .table-ios tr.link:hover td { background: var(--fill-2); }
 .table-ios tfoot td { border: 0; padding: 6px 16px; }
 .table-ios .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.inv-no { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inv-no { font-weight: 600; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.table-ios td .small-2 { white-space: nowrap; }
 .inv-no.draft { color: var(--text-3); font-weight: 500; font-style: italic; }
 .due-late { color: var(--ios-red-text); font-weight: 500; }
 
 /* ── Panel ───────────────────────────────────────────────────────────────── */
-.chart-box { position: relative; height: 280px; padding: 0 20px 18px; }
+.chart-card { display: flex; flex-direction: column; }
+.chart-box { position: relative; flex: 1; min-height: 300px; padding: 0 20px 18px; }
 .meter { height: 6px; background: var(--fill); border-radius: 999px; overflow: hidden; }
 .meter > span { display: block; height: 100%; background: var(--ios-blue); border-radius: 999px; }
 .rank { width: 22px; text-align: center; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
 
 /* ── Factura ─────────────────────────────────────────────────────────────── */
 .doc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 24px 18px; border-bottom: .5px solid var(--sep); }
-.doc-no { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+.doc-no { font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
 .doc-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 20px; padding: 18px 24px; border-bottom: .5px solid var(--sep); }
 .doc-label { font-size: 12px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .02em; margin-bottom: 4px; }
 .doc-value { font-weight: 600; }
@@ -317,6 +320,7 @@ a:hover { color: var(--ios-blue); }
   .doc-grid { grid-template-columns: 1fr 1fr; }
   .sticky-side { position: static; }
 }
+@media (max-width: 1499.98px) { .table-ios .hide-xl { display: none; } }
 @media (max-width: 767.98px) {
   .lines-grid { grid-template-columns: 1fr 1fr; }
   .lines-grid > :first-child { grid-column: 1 / -1; }

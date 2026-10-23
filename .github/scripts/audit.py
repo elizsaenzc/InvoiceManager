@@ -12,11 +12,22 @@ import io
 import os
 import re
 import sys
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
 
 BASE = os.environ.get("BASE_URL", "http://localhost:8080")
+
+
+def _excepthook(kind, value, tb):
+    detail = "".join(traceback.format_exception(kind, value, tb))
+    print(detail)
+    print("::error::Excepción en la auditoría: " + detail[-1500:].replace("\n", " | "))
+    sys.exit(1)
+
+
+sys.excepthook = _excepthook
 failures: list[str] = []
 passed = 0
 
@@ -69,7 +80,8 @@ def token(path):
 
 
 def post(form_path, action, fields):
-    data = {"__RequestVerificationToken": token(form_path), **fields}
+    # El token antiforgery no depende del formulario: se toma de una página que siempre tiene uno
+    data = {"__RequestVerificationToken": token("/Clients/Create"), **fields}
     return request("POST", action, data)
 
 

@@ -75,7 +75,25 @@
   }
   else
   {
-    <div class="table-responsive">
+    <ul class="list-ios d-md-none">
+      @foreach (var inv in Model)
+      {
+        <li>
+          <a href="@Url.Action("Details", new { id = inv.Id })">
+            <span class="avatar @Fmt.AvatarTone(inv.ClientId)">@inv.Client?.Initials</span>
+            <span class="grow">
+              <span class="title d-block">@inv.Client?.Name</span>
+              <span class="sub d-block">@inv.DisplayNumber · @(inv.IsOpen ? Fmt.DueText(inv) : Fmt.Date(inv.IssueDate))</span>
+            </span>
+            <span class="end">
+              <span class="d-block fw-600 tnum">@Fmt.Eur(inv.Total)</span>
+              @Fmt.Pill(inv.Status)
+            </span>
+          </a>
+        </li>
+      }
+    </ul>
+    <div class="table-responsive d-none d-md-block">
       <table class="table-ios">
         <thead>
           <tr>
@@ -83,7 +101,7 @@
             <th>Cliente</th>
             <th class="hide-sm">Emisión</th>
             <th class="hide-sm">Vencimiento</th>
-            <th class="num hide-sm">Base</th>
+            <th class="num hide-sm hide-xl">Base</th>
             <th class="num">Total</th>
             <th>Estado</th>
             <th></th>
@@ -96,7 +114,7 @@
               <td><span class="inv-no @(inv.IsDraft ? "draft" : "")">@inv.DisplayNumber</span></td>
               <td>
                 <div class="fw-600">@inv.Client?.Name</div>
-                <div class="small-2 muted text-truncate" style="max-width:340px">@(inv.Lines.FirstOrDefault()?.Description)@(inv.Lines.Count > 1 ? $" y {inv.Lines.Count - 1} más" : "")</div>
+                <div class="small-2 muted text-truncate" style="max-width:300px">@(inv.Lines.FirstOrDefault()?.Description)@(inv.Lines.Count > 1 ? $" y {inv.Lines.Count - 1} más" : "")</div>
               </td>
               <td class="hide-sm muted tnum">@Fmt.Date(inv.IssueDate)</td>
               <td class="hide-sm tnum">
@@ -115,7 +133,7 @@
                   <span class="muted">@Fmt.Date(inv.DueDate)</span>
                 }
               </td>
-              <td class="num hide-sm muted">@Fmt.Eur(inv.Subtotal)</td>
+              <td class="num hide-sm hide-xl muted">@Fmt.Eur(inv.Subtotal)</td>
               <td class="num fw-600">@Fmt.Eur(inv.Total)</td>
               <td>@Fmt.Pill(inv.Status)</td>
               <td class="text-end">

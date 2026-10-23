@@ -68,7 +68,7 @@
 
 <div class="row g-3 mb-3">
   <div class="col-xl-8">
-    <div class="card-ios h-100">
+    <div class="card-ios h-100 chart-card">
       <div class="card-head">
         <h2 class="card-title">Facturación y cobros</h2>
         <span class="small-2 muted">Base imponible · últimos 12 meses</span>
@@ -99,7 +99,7 @@
                 <span class="avatar @Fmt.AvatarTone(inv.ClientId)">@inv.Client?.Initials</span>
                 <span class="grow">
                   <span class="title d-block">@inv.Client?.Name</span>
-                  <span class="sub d-block">@inv.Number · <span class="due-late">@Fmt.DueText(inv)</span></span>
+                  <span class="sub d-block due-late">@Fmt.DueText(inv)</span>
                 </span>
                 <span class="end fw-600 tnum">@Fmt.Eur(inv.Total)</span>
                 <i class="bi bi-chevron-right chev"></i>
@@ -119,7 +119,7 @@
                 <span class="avatar @Fmt.AvatarTone(inv.ClientId)">@inv.Client?.Initials</span>
                 <span class="grow">
                   <span class="title d-block">@inv.Client?.Name</span>
-                  <span class="sub d-block">@inv.Number · @Fmt.DueText(inv)</span>
+                  <span class="sub d-block">@Fmt.DueText(inv)</span>
                 </span>
                 <span class="end fw-600 tnum">@Fmt.Eur(inv.Total)</span>
                 <i class="bi bi-chevron-right chev"></i>
@@ -147,7 +147,7 @@
             {
               <tr class="link" data-href="@Url.Action("Details", "Invoices", new { id = inv.Id })">
                 <td><span class="inv-no">@inv.Number</span></td>
-                <td>@inv.Client?.Name</td>
+                <td><span class="d-block text-truncate" style="max-width:260px">@inv.Client?.Name</span></td>
                 <td class="hide-sm muted">@Fmt.Date(inv.IssueDate)</td>
                 <td class="num fw-600">@Fmt.Eur(inv.Total)</td>
                 <td>@Fmt.Pill(inv.Status)</td>
@@ -174,7 +174,7 @@
               <span class="grow">
                 <span class="d-flex justify-content-between gap-2">
                   <span class="title">@c.Name</span>
-                  <span class="fw-600 tnum">@Fmt.EurShort(c.Invoiced)</span>
+                  <span class="fw-600 tnum nowrap">@Fmt.EurShort(c.Invoiced)</span>
                 </span>
                 <span class="meter mt-2 d-block"><span style="width:@((int)(c.Invoiced / maxTop * 100))%"></span></span>
               </span>
@@ -210,7 +210,7 @@
         responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8 } },
+          legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8, padding: 18 } },
           tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${eur(c.parsed.y)}` } }
         },
         scales: {
