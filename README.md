@@ -172,3 +172,22 @@ dotnet run
 Digital Solutions & Cloud Architecture  
 Fullstack Developer (.NET, Angular)  
 Automation • AI • Azure • AWS • Power Platform
+
+---
+
+## Run locally
+
+```bash
+dotnet run
+```
+
+The SQLite database is created and seeded with sample data on startup.
+
+## Run with Docker
+
+```bash
+docker build -t invoicemanager .
+docker run -p 8080:8080 invoicemanager
+```
+
+The repository includes a `render.yaml` to deploy it on [Render](https://render.com) on the free plan: *New → Blueprint* and select this repository.
