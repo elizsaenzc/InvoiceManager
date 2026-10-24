@@ -1,90 +1,125 @@
+@using Microsoft.Extensions.Options
+@using Microsoft.EntityFrameworkCore
+@inject InvoiceManager.Data.AppDbContext Db
+@inject IOptions<CompanyOptions> CompanyOpt
+@{
+    var company = CompanyOpt.Value;
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    string Active(string c) => controller == c ? "active" : "";
+    var overdue = await Db.Invoices.CountAsync(i => i.Status == InvoiceStatus.Overdue ||
+                                                   (i.Status == InvoiceStatus.Pending && i.DueDate < DateTime.Today));
+    var drafts = await Db.Invoices.CountAsync(i => i.Status == InvoiceStatus.Draft);
+}
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>@ViewData["Title"] — InvoiceManager</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  <link rel="stylesheet" href="~/css/site.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f2f2f7" />
+  <title>@ViewData["Title"] · InvoiceManager</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23007aff'/%3E%3Cpath d='M10 8h12v16l-3-2-3 2-3-2-3 2z' fill='white'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
+<div class="app">
+  <nav class="sidebar" aria-label="Navegación principal">
+    <a class="brand" href="@Url.Action("Index", "Home")">
+      <span class="app-ico lg bg-blue"><i class="bi bi-receipt"></i></span>
+      <span>
+        <span class="brand-name d-block">InvoiceManager</span>
+        <span class="brand-sub">Facturación</span>
+      </span>
+    </a>
 
-<div class="app-shell">
-  <!-- Sidebar -->
-  <nav class="sidebar">
-    <div class="sidebar-brand">
-      <span class="brand-icon"><i class="bi bi-receipt-cutoff"></i></span>
-      <span class="brand-text">Invoice<strong>Manager</strong></span>
+    <div class="nav-groups">
+      <div class="nav-group-title">General</div>
+      <ul class="nav-group">
+        <li><a href="@Url.Action("Index", "Home")" class="@Active("Home")"><span class="app-ico bg-blue"><i class="bi bi-grid-1x2-fill"></i></span><span>Panel</span></a></li>
+      </ul>
+
+      <div class="nav-group-title">Facturación</div>
+      <ul class="nav-group">
+        <li>
+          <a href="@Url.Action("Index", "Invoices")" class="@Active("Invoices")">
+            <span class="app-ico bg-indigo"><i class="bi bi-file-earmark-text-fill"></i></span><span>Facturas</span>
+            @if (overdue > 0) { <span class="count" title="Facturas vencidas">@overdue</span> }
+          </a>
+        </li>
+        <li><a href="@Url.Action("Index", "Clients")" class="@Active("Clients")"><span class="app-ico bg-orange"><i class="bi bi-people-fill"></i></span><span>Clientes</span></a></li>
+      </ul>
+
+      <div class="nav-group-title">Informes</div>
+      <ul class="nav-group">
+        <li><a href="@Url.Action("Index", "Reports")" class="@Active("Reports")"><span class="app-ico bg-green"><i class="bi bi-bar-chart-fill"></i></span><span>IVA trimestral</span></a></li>
+      </ul>
     </div>
 
-    <ul class="sidebar-nav">
-      <li>
-        <a href="@Url.Action("Index","Home")"
-           class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Home" ? "active" : "")">
-          <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+    <div class="sidebar-cta">
+      @if (drafts > 0)
+      {
+        <a href="@Url.Action("Index", "Invoices", new { status = "Draft" })" class="d-flex align-items-center gap-2 small-2 muted px-2 mb-2">
+          <i class="bi bi-pencil-square"></i>@drafts @(drafts == 1 ? "borrador sin emitir" : "borradores sin emitir")
         </a>
-      </li>
-      <li>
-        <a href="@Url.Action("Index","Invoices")"
-           class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Invoices" ? "active" : "")">
-          <i class="bi bi-file-earmark-text"></i><span>Facturas</span>
-        </a>
-      </li>
-      <li>
-        <a href="@Url.Action("Index","Clients")"
-           class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Clients" ? "active" : "")">
-          <i class="bi bi-people"></i><span>Clientes</span>
-        </a>
-      </li>
-    </ul>
-
-    <div class="sidebar-footer">
-      <a href="@Url.Action("Create","Invoices")" class="btn btn-primary btn-new w-100">
-        <i class="bi bi-plus-lg me-2"></i>Nueva Factura
-      </a>
+      }
+      <a href="@Url.Action("Create", "Invoices")" class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i>Nueva factura</a>
     </div>
   </nav>
 
-  <!-- Main content -->
-  <main class="main-content">
-    <!-- Top bar -->
+  <main class="main">
     <header class="topbar">
-      <h1 class="page-title">@(ViewData["Title"] ?? "Dashboard")</h1>
-      <div class="topbar-right">
-        <span class="company-badge">
-          <i class="bi bi-building me-1"></i>ESC Media &amp; Tech S.L.
+      <form class="search" method="get" action="@Url.Action("Index", "Invoices")" role="search">
+        <i class="bi bi-search"></i>
+        <input type="search" name="q" placeholder="Buscar factura, cliente, NIF o concepto" aria-label="Buscar"
+               value="@(controller == "Invoices" ? Context.Request.Query["q"].ToString() : "")" />
+      </form>
+      <a href="@Url.Action("Create", "Invoices")" class="btn btn-primary btn-sm d-lg-none" aria-label="Nueva factura"><i class="bi bi-plus-lg"></i></a>
+      <div class="company">
+        <span class="company-txt text-end">
+          <span class="company-name d-block">@company.Name</span>
+          <span class="company-sub">NIF @company.TaxId</span>
         </span>
+        <span class="avatar">EM</span>
       </div>
     </header>
 
-    <!-- Alerts -->
-    @if (TempData["Success"] != null)
-    {
-      <div class="alert alert-success alert-dismissible mx-4 mt-3 fade show" role="alert">
-        <i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    }
-    @if (TempData["Error"] != null)
-    {
-      <div class="alert alert-danger alert-dismissible mx-4 mt-3 fade show" role="alert">
-        <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["Error"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    }
-
-    <!-- Page body -->
-    <div class="page-body">
+    <div class="page">
       @RenderBody()
     </div>
   </main>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="~/js/site.js"></script>
+@if (TempData["Success"] is string ok)
+{
+  <div class="toast-ios ok" role="status"><i class="bi bi-check-circle-fill"></i>@ok</div>
+}
+@if (TempData["Error"] is string err)
+{
+  <div class="toast-ios error" role="alert"><i class="bi bi-exclamation-circle-fill"></i>@err</div>
+}
+
+<!-- Diálogo de confirmación reutilizable -->
+<div class="modal fade" id="confirm-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px">
+    <div class="modal-content text-center">
+      <div class="modal-body pt-4 px-4">
+        <h5 class="modal-title mb-2" data-confirm-title></h5>
+        <p class="muted mb-0" data-confirm-text></p>
+      </div>
+      <div class="modal-footer justify-content-center gap-2 pb-4">
+        <button type="button" class="btn btn-gray" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" data-confirm-ok>Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

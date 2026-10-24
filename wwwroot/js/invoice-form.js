@@ -1,107 +1,113 @@
-/* Invoice form: dynamic lines and live total calculation */
+/* Formulario de factura: conceptos dinámicos, totales en vivo y plazo de pago */
 (function () {
   'use strict';
 
-  const container = document.getElementById('lines-container');
-  const addBtn    = document.getElementById('add-line');
-  const taxInput  = document.getElementById('tax-rate');
+  const form = document.getElementById('invoice-form');
+  if (!form) return;
+  const lines = document.getElementById('lines');
+  const template = document.getElementById('line-template');
+  const taxRate = document.getElementById('tax-rate');
+  const client = document.getElementById('client');
+  const issue = document.getElementById('issue-date');
+  const due = document.getElementById('due-date');
+  const terms = document.getElementById('terms');
+  const concepts = window.INVOICE_CONCEPTS || {};
 
-  let lineIndex = container ? container.querySelectorAll('[data-line]').length : 0;
+  const eur = n => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+  const round2 = n => Math.round(n * 100) / 100;
+  const num = el => parseFloat(el?.value) || 0;
 
-  function fmtEur(n) {
-    return n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
-  }
-
-  function calcLine(row) {
-    const qty   = parseFloat(row.querySelector('[data-line-qty]')?.value)   || 0;
-    const price = parseFloat(row.querySelector('[data-line-price]')?.value) || 0;
-    const total = qty * price;
-    const span  = row.querySelector('[data-line-total]');
-    if (span) span.textContent = fmtEur(total);
-    return total;
-  }
-
-  function calcAll() {
-    let subtotal = 0;
-    container.querySelectorAll('[data-line]').forEach(row => {
-      subtotal += calcLine(row);
+  function recalc() {
+    let base = 0;
+    lines.querySelectorAll('[data-line]').forEach(row => {
+      const total = round2(num(row.querySelector('[data-line-qty]')) * num(row.querySelector('[data-line-price]')));
+      row.querySelector('[data-line-total]').textContent = eur(total);
+      base += total;
     });
-    const taxPct  = parseFloat(taxInput?.value) || 0;
-    const tax     = subtotal * taxPct / 100;
-    const total   = subtotal + tax;
-
-    const el = id => document.getElementById(id);
-    if (el('s-subtotal')) el('s-subtotal').textContent = fmtEur(subtotal);
-    if (el('s-tax'))      el('s-tax').textContent      = fmtEur(tax);
-    if (el('s-total'))    el('s-total').textContent    = fmtEur(total);
-    if (el('s-tax-pct'))  el('s-tax-pct').textContent  = taxPct;
+    const rate = num(taxRate);
+    const tax = round2(base * rate / 100);
+    document.getElementById('s-base').textContent = eur(base);
+    document.getElementById('s-rate').textContent = rate.toLocaleString('es-ES');
+    document.getElementById('s-tax').textContent = eur(tax);
+    document.getElementById('s-total').textContent = eur(base + tax);
   }
 
   function reindex() {
-    container.querySelectorAll('[data-line]').forEach((row, i) => {
-      row.querySelectorAll('[name]').forEach(el => {
-        el.name = el.name.replace(/Lines\[\d+\]/, `Lines[${i}]`);
-      });
+    lines.querySelectorAll('[data-line]').forEach((row, i) => {
+      row.querySelectorAll('[name]').forEach(el => { el.name = el.name.replace(/Lines\[[^\]]+\]/, `Lines[${i}]`); });
     });
-    lineIndex = container.querySelectorAll('[data-line]').length;
   }
 
-  function addLine() {
-    const html = `
-      <div class="line-row lines-grid" data-line>
-        <input type="hidden" name="Lines[${lineIndex}].Id" value="0" />
-        <div>
-          <input type="text" name="Lines[${lineIndex}].Description"
-                 class="form-control" placeholder="Descripción del servicio o producto" data-line-desc />
-        </div>
-        <div>
-          <input type="number" name="Lines[${lineIndex}].Quantity"
-                 class="form-control text-center" min="0.01" step="0.01" value="1" data-line-qty />
-        </div>
-        <div>
-          <input type="number" name="Lines[${lineIndex}].UnitPrice"
-                 class="form-control text-end" min="0" step="0.01" placeholder="0,00" data-line-price />
-        </div>
-        <div class="d-flex align-items-center justify-content-end">
-          <span class="line-total" data-line-total>0,00 €</span>
-        </div>
-        <div class="d-flex align-items-center justify-content-center">
-          <button type="button" class="btn btn-icon text-danger" data-remove-line title="Eliminar línea">
-            <i class="bi bi-trash"></i>
-          </button>
-        </div>
-      </div>`;
-    container.insertAdjacentHTML('beforeend', html);
-    lineIndex++;
-    // Focus new description
-    const rows = container.querySelectorAll('[data-line]');
-    rows[rows.length - 1].querySelector('[data-line-desc]')?.focus();
+  function addLine(focus = true) {
+    const html = template.innerHTML.replaceAll('__i__', lines.children.length);
+    lines.insertAdjacentHTML('beforeend', html);
+    reindex();
+    if (focus) lines.lastElementChild.querySelector('[data-line-desc]').focus();
   }
 
-  // Event delegation
-  document.addEventListener('input', e => {
-    if (e.target.closest('[data-line]')) calcAll();
-    if (e.target === taxInput) calcAll();
+  // Plazo de pago: días entre emisión y vencimiento
+  const toDate = s => (s ? new Date(s + 'T00:00:00') : null);
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  function currentDays() {
+    const a = toDate(issue.value), b = toDate(due.value);
+    return a && b ? Math.round((b - a) / 86400000) : null;
+  }
+  function setDays(days) {
+    const a = toDate(issue.value);
+    if (!a) return;
+    a.setDate(a.getDate() + days);
+    due.value = iso(a);
+    markTerms();
+  }
+  function markTerms() {
+    const d = currentDays();
+    terms.querySelectorAll('a').forEach(a => a.classList.toggle('active', Number(a.dataset.days) === d));
+  }
+
+  terms.addEventListener('click', e => {
+    const a = e.target.closest('a[data-days]');
+    if (!a) return;
+    e.preventDefault();
+    setDays(Number(a.dataset.days));
   });
 
-  document.addEventListener('click', e => {
-    if (e.target.closest('[data-remove-line]')) {
-      const row = e.target.closest('[data-line]');
-      if (container.querySelectorAll('[data-line]').length > 1) {
-        row.remove();
-        reindex();
-        calcAll();
-      } else {
-        // Clear instead of remove if it's the last line
-        row.querySelectorAll('input[type="text"], input[type="number"]').forEach(i => i.value = '');
-        calcAll();
-      }
+  let lastDays = currentDays();
+  issue.addEventListener('change', () => { if (lastDays !== null) setDays(lastDays); });
+  due.addEventListener('change', () => { lastDays = currentDays(); markTerms(); });
+  client.addEventListener('change', () => {
+    const t = client.selectedOptions[0]?.dataset.terms;
+    if (t !== undefined) { lastDays = Number(t); setDays(lastDays); }
+  });
+
+  lines.addEventListener('input', e => {
+    // Al elegir un concepto ya facturado se propone su último precio
+    if (e.target.matches('[data-line-desc]') && concepts[e.target.value] !== undefined) {
+      const price = e.target.closest('[data-line]').querySelector('[data-line-price]');
+      if (!price.value || Number(price.value) === 0) price.value = Number(concepts[e.target.value]).toFixed(2);
     }
-    if (e.target === addBtn || e.target.closest('#add-line') === addBtn) {
-      addLine();
+    recalc();
+  });
+  taxRate.addEventListener('change', recalc);
+
+  lines.addEventListener('click', e => {
+    if (!e.target.closest('[data-remove-line]')) return;
+    const row = e.target.closest('[data-line]');
+    if (lines.querySelectorAll('[data-line]').length > 1) row.remove();
+    else row.querySelectorAll('input').forEach(i => { i.value = i.matches('[data-line-qty]') ? '1' : ''; });
+    reindex();
+    recalc();
+  });
+
+  document.getElementById('add-line').addEventListener('click', () => addLine());
+
+  // Intro en el último precio añade un concepto nuevo en lugar de enviar el formulario
+  lines.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.matches('input')) {
+      e.preventDefault();
+      if (e.target.closest('[data-line]') === lines.lastElementChild) addLine();
     }
   });
 
-  // Init: calculate existing lines on page load (edit mode)
-  calcAll();
+  markTerms();
+  recalc();
 })();

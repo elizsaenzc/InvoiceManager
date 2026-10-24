@@ -1,83 +1,162 @@
-@model IEnumerable<Invoice>
+@model List<Invoice>
 @{
     ViewData["Title"] = "Facturas";
+    var counts = (Dictionary<string, int>)ViewBag.Counts;
+    var current = (string?)ViewBag.Status ?? "";
+    string? statusParam = string.IsNullOrEmpty(current) ? null : current;
+    var q = (string?)ViewBag.Q;
+    var clientId = (int?)ViewBag.ClientId;
+    var year = (int?)ViewBag.Year;
+    var clients = (List<Client>)ViewBag.ClientOptions;
+    var years = (List<int>)ViewBag.Years;
+    string Seg(string s) => Url.Action("Index", new { q, status = string.IsNullOrEmpty(s) ? null : s, clientId, year })!;
+    var segments = new (string Key, string Label)[]
+    {
+        ("", "Todas"), ("Open", "Por cobrar"), ("Overdue", "Vencidas"), ("Paid", "Cobradas"), ("Draft", "Borradores"), ("Cancelled", "Anuladas")
+    };
+    var totalShown = Model.Where(i => i.Status != InvoiceStatus.Cancelled && !i.IsDraft).Sum(i => i.Total);
+    var openShown = Model.Where(i => i.IsOpen).Sum(i => i.Total);
 }
 
-<div class="toolbar mb-4">
-  <form method="get" class="d-flex gap-2 flex-wrap">
-    <div class="search-wrap">
-      <i class="bi bi-search search-icon"></i>
-      <input type="text" name="search" value="@ViewBag.Search"
-             class="form-control search-input" placeholder="Número o cliente…" />
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Facturas</h1>
+    <div class="page-sub">
+      @Model.Count @(Model.Count == 1 ? "factura" : "facturas") · @Fmt.Eur(totalShown) facturado
+      @if (openShown > 0) { <span>· @Fmt.Eur(openShown) por cobrar</span> }
     </div>
-    <select name="status" class="form-select filter-select">
-      <option value="">Todos los estados</option>
-      @foreach (var s in (IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)ViewBag.Statuses)
-      {
-        <option value="@s.Value" selected="@(s.Value == ViewBag.StatusFilter)">@s.Text</option>
-      }
-    </select>
-    <button type="submit" class="btn btn-outline-secondary">Filtrar</button>
-    <a href="@Url.Action("Index")" class="btn btn-ghost">Limpiar</a>
-  </form>
-  <a href="@Url.Action("Create")" class="btn btn-primary">
-    <i class="bi bi-plus-lg me-1"></i>Nueva factura
-  </a>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="@Url.Action("Export", new { q, status = statusParam, clientId, year })" class="btn btn-gray"><i class="bi bi-download"></i>Exportar CSV</a>
+    <a href="@Url.Action("Create")" class="btn btn-primary"><i class="bi bi-plus-lg"></i>Nueva factura</a>
+  </div>
 </div>
 
-<div class="card-panel p-0">
-  <div class="table-responsive">
-    <table class="table im-table mb-0">
-      <thead>
-        <tr>
-          <th>Número</th>
-          <th>Cliente</th>
-          <th>Emisión</th>
-          <th>Vencimiento</th>
-          <th class="text-end">Subtotal</th>
-          <th class="text-end">Total</th>
-          <th>Estado</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @foreach (var inv in Model)
-        {
-          <tr class="@(inv.Status == InvoiceStatus.Overdue ? "row-overdue" : "")">
-            <td><span class="inv-number">@inv.Number</span></td>
-            <td>@inv.Client?.Name</td>
-            <td>@inv.IssueDate.ToString("dd/MM/yyyy")</td>
-            <td class="@(inv.IsOverdue || inv.Status == InvoiceStatus.Overdue ? "text-danger fw-500" : "")">
-              @inv.DueDate.ToString("dd/MM/yyyy")
-            </td>
-            <td class="text-end">@inv.Subtotal.ToString("C", new System.Globalization.CultureInfo("es-ES"))</td>
-            <td class="text-end fw-500">@inv.Total.ToString("C", new System.Globalization.CultureInfo("es-ES"))</td>
-            <td><span class="status-badge status-@inv.Status.ToString().ToLower()">@InvoicesController.StatusLabel(inv.Status)</span></td>
-            <td class="text-end">
-              <div class="btn-group btn-group-sm">
-                <a href="@Url.Action("Details", new{id=inv.Id})" class="btn btn-icon" title="Ver detalle">
-                  <i class="bi bi-eye"></i>
-                </a>
-                <a href="@Url.Action("Edit", new{id=inv.Id})" class="btn btn-icon" title="Editar">
-                  <i class="bi bi-pencil"></i>
-                </a>
-                <a href="@Url.Action("Print", new{id=inv.Id})" target="_blank" class="btn btn-icon" title="Imprimir">
-                  <i class="bi bi-printer"></i>
-                </a>
-              </div>
-            </td>
-          </tr>
-        }
-        @if (!Model.Any())
-        {
+<div class="filters">
+  <nav class="segmented" aria-label="Filtrar por estado">
+    @foreach (var (key, label) in segments)
+    {
+      var n = counts[string.IsNullOrEmpty(key) ? "All" : key];
+      <a href="@Seg(key)" class="@(current == key ? "active" : "")">@label <span class="n">@n</span></a>
+    }
+  </nav>
+  <form method="get" class="d-flex gap-2 flex-wrap">
+    @if (!string.IsNullOrEmpty(q)) { <input type="hidden" name="q" value="@q" /> }
+    @if (!string.IsNullOrEmpty(current)) { <input type="hidden" name="status" value="@current" /> }
+    <select name="clientId" class="form-select" onchange="this.form.submit()" aria-label="Cliente">
+      <option value="">Todos los clientes</option>
+      @foreach (var c in clients)
+      {
+        <!option value="@c.Id" selected="@(c.Id == clientId)">@c.Name</!option>
+      }
+    </select>
+    <select name="year" class="form-select" onchange="this.form.submit()" aria-label="Año" style="min-width:120px">
+      <option value="">Todos los años</option>
+      @foreach (var y in years)
+      {
+        <!option value="@y" selected="@(y == year)">@y</!option>
+      }
+    </select>
+  </form>
+  @if (!string.IsNullOrEmpty(q) || clientId != null || year != null)
+  {
+    <a href="@Url.Action("Index", new { status = statusParam })" class="btn btn-plain btn-sm"><i class="bi bi-x-circle-fill"></i>Quitar filtros@(string.IsNullOrEmpty(q) ? "" : $" («{q}»)")</a>
+  }
+</div>
+
+<div class="card-ios">
+  @if (!Model.Any())
+  {
+    <div class="empty">
+      <i class="bi bi-file-earmark-text"></i>
+      No hay facturas con estos filtros.
+      <div class="mt-3"><a href="@Url.Action("Create")" class="btn btn-tinted btn-sm"><i class="bi bi-plus-lg"></i>Nueva factura</a></div>
+    </div>
+  }
+  else
+  {
+    <ul class="list-ios d-md-none">
+      @foreach (var inv in Model)
+      {
+        <li>
+          <a href="@Url.Action("Details", new { id = inv.Id })">
+            <span class="avatar @Fmt.AvatarTone(inv.ClientId)">@inv.Client?.Initials</span>
+            <span class="grow">
+              <span class="title d-block">@inv.Client?.Name</span>
+              <span class="sub d-block">@inv.DisplayNumber · @(inv.IsOpen ? Fmt.DueText(inv) : Fmt.Date(inv.IssueDate))</span>
+            </span>
+            <span class="end">
+              <span class="d-block fw-600 tnum">@Fmt.Eur(inv.Total)</span>
+              @Fmt.Pill(inv.Status)
+            </span>
+          </a>
+        </li>
+      }
+    </ul>
+    <div class="table-responsive d-none d-md-block">
+      <table class="table-ios">
+        <thead>
           <tr>
-            <td colspan="8" class="text-center text-muted py-5">
-              <i class="bi bi-file-earmark-x fs-2 d-block mb-2"></i>
-              Sin resultados. <a href="@Url.Action("Create")">Crea tu primera factura.</a>
-            </td>
+            <th>Número</th>
+            <th>Cliente</th>
+            <th class="hide-sm">Emisión</th>
+            <th class="hide-sm">Vencimiento</th>
+            <th class="num hide-sm hide-xl">Base</th>
+            <th class="num">Total</th>
+            <th>Estado</th>
+            <th></th>
           </tr>
-        }
-      </tbody>
-    </table>
-  </div>
+        </thead>
+        <tbody>
+          @foreach (var inv in Model)
+          {
+            <tr class="link" data-href="@Url.Action("Details", new { id = inv.Id })">
+              <td><span class="inv-no @(inv.IsDraft ? "draft" : "")">@inv.DisplayNumber</span></td>
+              <td>
+                <div class="fw-600">@inv.Client?.Name</div>
+                <div class="small-2 muted text-truncate" style="max-width:300px">@(inv.Lines.FirstOrDefault()?.Description)@(inv.Lines.Count > 1 ? $" y {inv.Lines.Count - 1} más" : "")</div>
+              </td>
+              <td class="hide-sm muted tnum">@Fmt.Date(inv.IssueDate)</td>
+              <td class="hide-sm tnum">
+                @if (inv.IsOpen)
+                {
+                  <span class="@(inv.Status == InvoiceStatus.Overdue ? "due-late" : "")">@Fmt.Date(inv.DueDate)</span>
+                  <div class="small-2 @(inv.Status == InvoiceStatus.Overdue ? "due-late" : "muted")">@Fmt.DueText(inv)</div>
+                }
+                else if (inv.Status == InvoiceStatus.Paid && inv.PaidDate != null)
+                {
+                  <span class="muted">@Fmt.Date(inv.DueDate)</span>
+                  <div class="small-2 muted">cobrada el @Fmt.DateShort(inv.PaidDate.Value)</div>
+                }
+                else
+                {
+                  <span class="muted">@Fmt.Date(inv.DueDate)</span>
+                }
+              </td>
+              <td class="num hide-sm hide-xl muted">@Fmt.Eur(inv.Subtotal)</td>
+              <td class="num fw-600">@Fmt.Eur(inv.Total)</td>
+              <td>@Fmt.Pill(inv.Status)</td>
+              <td class="text-end">
+                <div class="dropdown">
+                  <button class="btn-icon btn" data-bs-toggle="dropdown" aria-label="Acciones"><i class="bi bi-three-dots"></i></button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="@Url.Action("Details", new { id = inv.Id })"><i class="bi bi-eye"></i>Ver factura</a></li>
+                    @if (inv.IsEditable)
+                    {
+                      <li><a class="dropdown-item" href="@Url.Action("Edit", new { id = inv.Id })"><i class="bi bi-pencil"></i>Editar</a></li>
+                    }
+                    @if (!inv.IsDraft)
+                    {
+                      <li><a class="dropdown-item" href="@Url.Action("Print", new { id = inv.Id })" target="_blank"><i class="bi bi-printer"></i>Imprimir / PDF</a></li>
+                    }
+                    <li><a class="dropdown-item" href="@Url.Action("Create", new { copyOf = inv.Id })"><i class="bi bi-copy"></i>Duplicar</a></li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
 </div>

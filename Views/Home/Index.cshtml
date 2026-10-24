@@ -1,148 +1,225 @@
 @model DashboardViewModel
 @{
-    ViewData["Title"] = "Dashboard";
+    ViewData["Title"] = "Panel";
+    var monthDelta = Model.InvoicedLastMonth > 0 ? (Model.InvoicedThisMonth - Model.InvoicedLastMonth) / Model.InvoicedLastMonth * 100 : 0;
+    var collectedPct = Model.Invoiced12 > 0 ? Model.Collected12 / Model.Invoiced12 * 100 : 0;
+    var maxTop = Model.TopClients.Select(c => c.Invoiced).DefaultIfEmpty(1m).Max();
 }
 
-<!-- KPI Cards -->
-<div class="row g-3 mb-4">
-  <div class="col-sm-6 col-xl-3">
-    <div class="kpi-card kpi-blue">
-      <div class="kpi-icon"><i class="bi bi-file-earmark-text"></i></div>
-      <div class="kpi-body">
-        <span class="kpi-label">Total facturas</span>
-        <span class="kpi-value">@Model.TotalInvoices</span>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Panel</h1>
+    <div class="page-sub">@DateTime.Today.ToString("dddd, d 'de' MMMM", Fmt.Es)</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="@Url.Action("Index", "Reports")" class="btn btn-gray"><i class="bi bi-bar-chart"></i>IVA trimestral</a>
+    <a href="@Url.Action("Create", "Invoices")" class="btn btn-primary"><i class="bi bi-plus-lg"></i>Nueva factura</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl-3">
+    <div class="card-ios kpi">
+      <span class="app-ico lg bg-blue"><i class="bi bi-graph-up-arrow"></i></span>
+      <div>
+        <div class="kpi-label">Facturado · 12 meses</div>
+        <div class="kpi-value">@Fmt.EurShort(Model.Invoiced12)</div>
+        <div class="kpi-sub">
+          Este mes @Fmt.EurShort(Model.InvoicedThisMonth)
+          @if (Model.InvoicedLastMonth > 0)
+          {
+            <span class="@(monthDelta >= 0 ? "trend-up" : "trend-down")"><i class="bi @(monthDelta >= 0 ? "bi-arrow-up-right" : "bi-arrow-down-right")"></i>@Math.Abs(Math.Round(monthDelta)) %</span>
+          }
+        </div>
       </div>
     </div>
   </div>
-  <div class="col-sm-6 col-xl-3">
-    <div class="kpi-card kpi-green">
-      <div class="kpi-icon"><i class="bi bi-check-circle"></i></div>
-      <div class="kpi-body">
-        <span class="kpi-label">Ingresos cobrados</span>
-        <span class="kpi-value">@Model.TotalRevenue.ToString("C", new System.Globalization.CultureInfo("es-ES"))</span>
+  <div class="col-6 col-xl-3">
+    <div class="card-ios kpi">
+      <span class="app-ico lg bg-green"><i class="bi bi-wallet2"></i></span>
+      <div>
+        <div class="kpi-label">Cobrado · 12 meses</div>
+        <div class="kpi-value">@Fmt.EurShort(Model.Collected12)</div>
+        <div class="kpi-sub">Cobro medio en @Model.AverageCollectionDays días</div>
       </div>
     </div>
   </div>
-  <div class="col-sm-6 col-xl-3">
-    <div class="kpi-card kpi-amber">
-      <div class="kpi-icon"><i class="bi bi-clock-history"></i></div>
-      <div class="kpi-body">
-        <span class="kpi-label">Pendiente de cobro</span>
-        <span class="kpi-value">@Model.PendingAmount.ToString("C", new System.Globalization.CultureInfo("es-ES"))</span>
+  <div class="col-6 col-xl-3">
+    <a class="card-ios kpi text-reset d-flex" href="@Url.Action("Index", "Invoices", new { status = "Open" })">
+      <span class="app-ico lg bg-orange"><i class="bi bi-hourglass-split"></i></span>
+      <div>
+        <div class="kpi-label">Pendiente de cobro</div>
+        <div class="kpi-value">@Fmt.EurShort(Model.PendingAmount)</div>
+        <div class="kpi-sub">@Model.PendingCount facturas abiertas</div>
       </div>
+    </a>
+  </div>
+  <div class="col-6 col-xl-3">
+    <a class="card-ios kpi text-reset d-flex" href="@Url.Action("Index", "Invoices", new { status = "Overdue" })">
+      <span class="app-ico lg @(Model.OverdueCount > 0 ? "bg-red" : "bg-gray")"><i class="bi bi-exclamation-triangle-fill"></i></span>
+      <div>
+        <div class="kpi-label">Vencido</div>
+        <div class="kpi-value">@Fmt.EurShort(Model.OverdueAmount)</div>
+        <div class="kpi-sub">@(Model.OverdueCount == 1 ? "1 factura sin cobrar" : $"{Model.OverdueCount} facturas sin cobrar")</div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-xl-8">
+    <div class="card-ios h-100 chart-card">
+      <div class="card-head">
+        <h2 class="card-title">Facturación y cobros</h2>
+        <span class="small-2 muted">Base imponible · últimos 12 meses</span>
+      </div>
+      <div class="chart-box"><canvas id="chart-months" aria-label="Facturado y cobrado por mes"></canvas></div>
     </div>
   </div>
-  <div class="col-sm-6 col-xl-3">
-    <div class="kpi-card kpi-red">
-      <div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div>
-      <div class="kpi-body">
-        <span class="kpi-label">Vencidas</span>
-        <span class="kpi-value">@Model.OverdueCount <small>(@Model.OverdueAmount.ToString("C", new System.Globalization.CultureInfo("es-ES")))</small></span>
+  <div class="col-xl-4">
+    <div class="card-ios h-100">
+      <div class="card-head">
+        <h2 class="card-title">Vencidas</h2>
+        @if (Model.OverdueCount > 0)
+        {
+          <a class="card-link" href="@Url.Action("Index", "Invoices", new { status = "Overdue" })">Ver todas</a>
+        }
       </div>
+      @if (!Model.OverdueInvoices.Any())
+      {
+        <div class="empty"><i class="bi bi-check-circle"></i>No hay facturas vencidas.</div>
+      }
+      else
+      {
+        <ul class="list-ios">
+          @foreach (var inv in Model.OverdueInvoices.Take(5))
+          {
+            <li>
+              <a href="@Url.Action("Details", "Invoices", new { id = inv.Id })">
+                <span class="avatar @Fmt.AvatarTone(inv.ClientId)">@inv.Client?.Initials</span>
+                <span class="grow">
+                  <span class="title d-block">@inv.Client?.Name</span>
+                  <span class="sub d-block due-late">@Fmt.DueText(inv)</span>
+                </span>
+                <span class="end fw-600 tnum">@Fmt.Eur(inv.Total)</span>
+                <i class="bi bi-chevron-right chev"></i>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+      @if (Model.UpcomingInvoices.Any())
+      {
+        <div class="section-title px-4 pt-3 mb-0">Próximos vencimientos</div>
+        <ul class="list-ios">
+          @foreach (var inv in Model.UpcomingInvoices)
+          {
+            <li>
+              <a href="@Url.Action("Details", "Invoices", new { id = inv.Id })">
+                <span class="avatar @Fmt.AvatarTone(inv.ClientId)">@inv.Client?.Initials</span>
+                <span class="grow">
+                  <span class="title d-block">@inv.Client?.Name</span>
+                  <span class="sub d-block">@Fmt.DueText(inv)</span>
+                </span>
+                <span class="end fw-600 tnum">@Fmt.Eur(inv.Total)</span>
+                <i class="bi bi-chevron-right chev"></i>
+              </a>
+            </li>
+          }
+        </ul>
+      }
     </div>
   </div>
 </div>
 
-<div class="row g-4">
-  <!-- Recent invoices -->
-  <div class="col-lg-7">
-    <div class="card-panel">
-      <div class="panel-header">
-        <h2 class="panel-title"><i class="bi bi-clock me-2"></i>Facturas recientes</h2>
-        <a href="@Url.Action("Index","Invoices")" class="btn-link-small">Ver todas →</a>
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card-ios">
+      <div class="card-head">
+        <h2 class="card-title">Últimas facturas</h2>
+        <a class="card-link" href="@Url.Action("Index", "Invoices")">Ver todas</a>
       </div>
       <div class="table-responsive">
-        <table class="table im-table">
-          <thead>
-            <tr>
-              <th>Número</th>
-              <th>Cliente</th>
-              <th>Total</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
+        <table class="table-ios">
+          <thead><tr><th>Número</th><th>Cliente</th><th class="hide-sm hide-xl">Fecha</th><th class="num">Total</th><th>Estado</th></tr></thead>
           <tbody>
             @foreach (var inv in Model.RecentInvoices)
             {
-              <tr onclick="location.href='@Url.Action("Details","Invoices",new{id=inv.Id})'" style="cursor:pointer">
-                <td><span class="inv-number">@inv.Number</span></td>
-                <td>@inv.Client?.Name</td>
-                <td>@inv.Total.ToString("C", new System.Globalization.CultureInfo("es-ES"))</td>
-                <td><span class="status-badge status-@inv.Status.ToString().ToLower()">@InvoicesController.StatusLabel(inv.Status)</span></td>
+              <tr class="link" data-href="@Url.Action("Details", "Invoices", new { id = inv.Id })">
+                <td><span class="inv-no">@inv.Number</span></td>
+                <td><span class="d-block text-truncate" style="max-width:260px">@inv.Client?.Name</span></td>
+                <td class="hide-sm hide-xl muted">@Fmt.Date(inv.IssueDate)</td>
+                <td class="num fw-600">@Fmt.Eur(inv.Total)</td>
+                <td>@Fmt.Pill(inv.Status)</td>
               </tr>
-            }
-            @if (!Model.RecentInvoices.Any())
-            {
-              <tr><td colspan="4" class="text-center text-muted py-4">Sin facturas aún. <a href="@Url.Action("Create","Invoices")">Crea la primera</a>.</td></tr>
             }
           </tbody>
         </table>
       </div>
     </div>
   </div>
-
-  <!-- Sidebar panel -->
-  <div class="col-lg-5">
-    <!-- Stats -->
-    <div class="card-panel mb-4">
-      <div class="panel-header">
-        <h2 class="panel-title"><i class="bi bi-pie-chart me-2"></i>Resumen de estados</h2>
+  <div class="col-xl-4">
+    <div class="card-ios">
+      <div class="card-head">
+        <h2 class="card-title">Mejores clientes</h2>
+        <span class="small-2 muted">@Model.ActiveClients activos</span>
       </div>
-      <div class="status-summary">
-        <div class="status-row">
-          <span class="status-badge status-pending">Pendiente</span>
-          <div class="status-bar-wrap">
-            @{ var total = Math.Max(Model.TotalInvoices, 1); }
-            <div class="status-bar" style="width:@((Model.PendingCount * 100 / total))%"></div>
-          </div>
-          <span class="status-count">@Model.PendingCount</span>
-        </div>
-        <div class="status-row">
-          <span class="status-badge status-paid">Pagado</span>
-          <div class="status-bar-wrap">
-            <div class="status-bar bar-paid" style="width:@((Model.PaidCount * 100 / total))%"></div>
-          </div>
-          <span class="status-count">@Model.PaidCount</span>
-        </div>
-        <div class="status-row">
-          <span class="status-badge status-overdue">Vencido</span>
-          <div class="status-bar-wrap">
-            <div class="status-bar bar-overdue" style="width:@((Model.OverdueCount * 100 / total))%"></div>
-          </div>
-          <span class="status-count">@Model.OverdueCount</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Overdue alerts -->
-    @if (Model.OverdueInvoices.Any())
-    {
-      <div class="card-panel panel-danger">
-        <div class="panel-header">
-          <h2 class="panel-title"><i class="bi bi-alarm me-2"></i>Atención — vencidas</h2>
-        </div>
-        @foreach (var inv in Model.OverdueInvoices.Take(4))
+      <ul class="list-ios plain">
+        @{ var pos = 1; }
+        @foreach (var c in Model.TopClients)
         {
-          <div class="overdue-item">
-            <div>
-              <div class="inv-number">@inv.Number</div>
-              <div class="overdue-client">@inv.Client?.Name</div>
-            </div>
-            <div class="text-end">
-              <div class="overdue-amount">@inv.Total.ToString("C", new System.Globalization.CultureInfo("es-ES"))</div>
-              <div class="overdue-days">hace @((DateTime.Today - inv.DueDate).Days) días</div>
-            </div>
-          </div>
+          <li>
+            <a href="@Url.Action("Details", "Clients", new { id = c.ClientId })">
+              <span class="rank">@(pos++)</span>
+              <span class="grow">
+                <span class="d-flex justify-content-between gap-2">
+                  <span class="title">@c.Name</span>
+                  <span class="fw-600 tnum nowrap">@Fmt.EurShort(c.Invoiced)</span>
+                </span>
+                <span class="meter mt-2 d-block"><span style="width:@((int)(c.Invoiced / maxTop * 100))%"></span></span>
+              </span>
+            </a>
+          </li>
         }
-        <a href="@Url.Action("Index","Invoices", new{status="Overdue"})" class="btn btn-sm btn-outline-danger w-100 mt-2">Ver todas las vencidas</a>
-      </div>
-    }
-    else
-    {
-      <div class="card-panel text-center py-4">
-        <i class="bi bi-check-circle-fill text-success fs-2 mb-2 d-block"></i>
-        <p class="text-muted mb-0">¡Sin facturas vencidas! Todo al día.</p>
-      </div>
-    }
+      </ul>
+      <div class="px-4 pb-3 pt-1 small-2 muted">Base imponible facturada en los últimos 12 meses · @Math.Round(collectedPct) % del total ya cobrado</div>
+    </div>
   </div>
 </div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  (function () {
+    const labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Months.Select(m => m.Label)));
+    const invoiced = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Months.Select(m => m.Invoiced)));
+    const collected = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Months.Select(m => m.Collected)));
+    const eur = v => v.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    Chart.defaults.color = '#8a8a8e';
+    new Chart(document.getElementById('chart-months'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Facturado', data: invoiced, backgroundColor: '#007aff', borderRadius: 6, maxBarThickness: 22 },
+          { label: 'Cobrado', data: collected, backgroundColor: '#34c759', borderRadius: 6, maxBarThickness: 22 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8, padding: 18 } },
+          tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${eur(c.parsed.y)}` } }
+        },
+        scales: {
+          x: { grid: { display: false }, border: { display: false } },
+          y: { beginAtZero: true, border: { display: false }, grid: { color: 'rgba(60,60,67,.08)' },
+               ticks: { callback: v => eur(v), maxTicksLimit: 6 } }
+        }
+      }
+    });
+  })();
+</script>
+}

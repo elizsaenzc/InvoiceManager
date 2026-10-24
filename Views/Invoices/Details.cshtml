@@ -1,155 +1,254 @@
 @model Invoice
+@using Microsoft.Extensions.Options
+@inject IOptions<CompanyOptions> CompanyOpt
 @{
-    ViewData["Title"] = $"Factura {Model.Number}";
-    var culture = new System.Globalization.CultureInfo("es-ES");
+    var company = CompanyOpt.Value;
+    ViewData["Title"] = Model.DisplayNumber;
+    var history = (List<Invoice>)ViewBag.ClientHistory;
+    var c = Model.Client!;
+
+    string Mail(bool reminder)
+    {
+        var subject = reminder
+            ? $"Recordatorio de pago · factura {Model.Number}"
+            : $"Factura {Model.Number} · {company.Name}";
+        var body = reminder
+            ? $"Hola{(string.IsNullOrEmpty(c.ContactName) ? "" : " " + c.ContactName.Split(' ')[0])},\n\n" +
+              $"Te escribimos porque la factura {Model.Number}, de {Fmt.Eur(Model.Total)}, venció el {Fmt.DateLong(Model.DueDate)} y todavía no nos consta el pago.\n\n" +
+              $"Puedes abonarla por transferencia a la cuenta {company.Iban} indicando el número de factura. Si ya la habéis pagado, ignora este mensaje.\n\n" +
+              $"Un saludo,\n{company.Name}"
+            : $"Hola{(string.IsNullOrEmpty(c.ContactName) ? "" : " " + c.ContactName.Split(' ')[0])},\n\n" +
+              $"Te enviamos la factura {Model.Number} por importe de {Fmt.Eur(Model.Total)}, con vencimiento el {Fmt.DateLong(Model.DueDate)}.\n\n" +
+              $"Forma de pago: transferencia a {company.Iban}.\n\nUn saludo,\n{company.Name}";
+        return $"mailto:{c.Email}?subject={Uri.EscapeDataString(subject)}&body={Uri.EscapeDataString(body)}";
+    }
 }
 
-<div class="toolbar mb-4">
-  <div class="d-flex gap-2 flex-wrap">
-    <a href="@Url.Action("Index")" class="btn btn-ghost"><i class="bi bi-arrow-left me-1"></i>Volver</a>
-    <a href="@Url.Action("Edit", new{id=Model.Id})" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Editar</a>
-    <a href="@Url.Action("Print", new{id=Model.Id})" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-printer me-1"></i>Imprimir</a>
+<div class="page-head">
+  <div>
+    <a href="@Url.Action("Index")" class="back-link"><i class="bi bi-chevron-left"></i>Facturas</a>
+    <h1 class="page-title">@Model.DisplayNumber</h1>
+    <div class="page-sub">@c.Name</div>
   </div>
-
-  <!-- Status change -->
-  <div class="dropdown">
-    <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
-      <span class="status-badge status-@Model.Status.ToString().ToLower() me-2">@InvoicesController.StatusLabel(Model.Status)</span>
-      Cambiar estado
-    </button>
-    <ul class="dropdown-menu dropdown-menu-end">
-      @foreach (InvoiceStatus s in Enum.GetValues<InvoiceStatus>())
-      {
-        if (s != Model.Status)
-        {
-          <li>
-            <form asp-action="ChangeStatus" method="post" class="d-inline">
-              @Html.AntiForgeryToken()
-              <input type="hidden" name="id" value="@Model.Id" />
-              <input type="hidden" name="status" value="@s" />
-              <button type="submit" class="dropdown-item">
-                <span class="status-badge status-@s.ToString().ToLower() me-2">@InvoicesController.StatusLabel(s)</span>
-              </button>
-            </form>
-          </li>
-        }
-      }
-    </ul>
+  <div class="d-flex gap-2 flex-wrap">
+    @if (!Model.IsDraft)
+    {
+      <a href="@Url.Action("Print", new { id = Model.Id })" target="_blank" class="btn btn-gray"><i class="bi bi-printer"></i>Imprimir / PDF</a>
+    }
+    @if (Model.IsEditable)
+    {
+      <a href="@Url.Action("Edit", new { id = Model.Id })" class="btn btn-gray"><i class="bi bi-pencil"></i>Editar</a>
+    }
+    @if (Model.IsOpen)
+    {
+      <button type="button" class="btn btn-green" data-bs-toggle="modal" data-bs-target="#pay-modal"><i class="bi bi-check2-circle"></i>Registrar cobro</button>
+    }
+    @if (Model.IsDraft)
+    {
+      <form asp-action="Issue" asp-route-id="@Model.Id" method="post"
+            data-confirm="Se le asignará el siguiente número de la serie con fecha de hoy. Después ya no podrá eliminarse, solo anularse."
+            data-confirm-title="¿Emitir la factura?" data-confirm-ok="Emitir">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i>Emitir factura</button>
+      </form>
+    }
   </div>
 </div>
 
-<div class="row g-4">
-  <div class="col-lg-8">
-    <div class="card-panel">
-      <!-- Invoice header -->
-      <div class="inv-detail-header">
+<div class="row g-3">
+  <div class="col-xl-8">
+    @if (Model.Status == InvoiceStatus.Paid && Model.PaidDate != null)
+    {
+      <div class="paid-banner mb-3">
+        <i class="bi bi-check-circle-fill fs-4"></i>
+        <div>Cobrada el @Fmt.DateLong(Model.PaidDate.Value) · @Model.PaymentMethod
+          <div class="small-2 fw-normal">@((Model.PaidDate.Value - Model.IssueDate).Days) días desde la emisión</div>
+        </div>
+      </div>
+    }
+    else if (Model.Status == InvoiceStatus.Overdue)
+    {
+      <div class="overdue-banner mb-3">
+        <i class="bi bi-exclamation-circle-fill fs-4"></i>
+        <div class="flex-grow-1">Vencida hace @Model.DaysOverdue días
+          <div class="small-2 fw-normal">El vencimiento era el @Fmt.DateLong(Model.DueDate)</div>
+        </div>
+        <a href="@Mail(true)" class="btn btn-danger-tinted btn-sm"><i class="bi bi-envelope"></i>Reclamar</a>
+      </div>
+    }
+
+    <div class="card-ios">
+      <div class="doc-head">
         <div>
-          <p class="inv-detail-label">Factura</p>
-          <h2 class="inv-detail-number">@Model.Number</h2>
+          <div class="doc-label">@(Model.IsDraft ? "Borrador de factura" : "Factura")</div>
+          <div class="doc-no">@Model.DisplayNumber</div>
         </div>
-        <span class="status-badge status-@Model.Status.ToString().ToLower() status-lg">
-          @InvoicesController.StatusLabel(Model.Status)
-        </span>
+        @Fmt.Pill(Model.Status, true)
       </div>
 
-      <div class="row g-3 mb-4">
-        <div class="col-sm-6">
-          <p class="detail-label">Cliente</p>
-          <p class="detail-value"><a href="@Url.Action("Details","Clients",new{id=Model.ClientId})">@Model.Client?.Name</a></p>
-          <p class="detail-sub">@Model.Client?.Email</p>
-          @if (!string.IsNullOrEmpty(Model.Client?.Phone)) { <p class="detail-sub">@Model.Client.Phone</p> }
-          @if (!string.IsNullOrEmpty(Model.Client?.TaxId)) { <p class="detail-sub">NIF: @Model.Client.TaxId</p> }
+      <div class="doc-grid">
+        <div>
+          <div class="doc-label">Facturar a</div>
+          <a class="doc-value d-block" href="@Url.Action("Details", "Clients", new { id = c.Id })">@c.Name</a>
+          <div class="small-2 muted">
+            @if (!string.IsNullOrEmpty(c.TaxId)) { <span>NIF @c.TaxId<br /></span> }
+            @if (!string.IsNullOrEmpty(c.Address)) { <span>@c.Address<br /></span> }
+            @if (!string.IsNullOrEmpty(c.City)) { <span>@c.City<br /></span> }
+            @c.Email
+          </div>
         </div>
-        <div class="col-sm-3">
-          <p class="detail-label">Fecha emisión</p>
-          <p class="detail-value">@Model.IssueDate.ToString("dd MMM yyyy", culture)</p>
+        <div>
+          <div class="doc-label">Emisión</div>
+          <div class="doc-value">@Fmt.DateLong(Model.IssueDate)</div>
         </div>
-        <div class="col-sm-3">
-          <p class="detail-label">Vencimiento</p>
-          <p class="detail-value @(Model.Status == InvoiceStatus.Overdue ? "text-danger" : "")">
-            @Model.DueDate.ToString("dd MMM yyyy", culture)
-          </p>
-          @if (Model.Status == InvoiceStatus.Overdue)
-          {
-            <p class="detail-sub text-danger">(@((DateTime.Today - Model.DueDate).Days) días vencida)</p>
-          }
+        <div>
+          <div class="doc-label">Vencimiento</div>
+          <div class="doc-value @(Model.Status == InvoiceStatus.Overdue ? "due-late" : "")">@Fmt.DateLong(Model.DueDate)</div>
+          @if (Model.IsOpen) { <div class="small-2 @(Model.Status == InvoiceStatus.Overdue ? "due-late" : "muted")">@Fmt.DueText(Model)</div> }
         </div>
       </div>
 
-      <!-- Lines table -->
-      <table class="table im-table">
-        <thead>
-          <tr>
-            <th>Descripción</th>
-            <th class="text-center">Qty</th>
-            <th class="text-end">Precio unit.</th>
-            <th class="text-end">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach (var line in Model.Lines)
-          {
-            <tr>
-              <td>@line.Description</td>
-              <td class="text-center">@line.Quantity.ToString("G29")</td>
-              <td class="text-end">@line.UnitPrice.ToString("C", culture)</td>
-              <td class="text-end">@line.Total.ToString("C", culture)</td>
-            </tr>
-          }
-        </tbody>
-        <tfoot>
-          <tr class="tfoot-subtotal">
-            <td colspan="3" class="text-end">Subtotal</td>
-            <td class="text-end">@Model.Subtotal.ToString("C", culture)</td>
-          </tr>
-          <tr class="tfoot-subtotal">
-            <td colspan="3" class="text-end">IVA (@Model.TaxRate%)</td>
-            <td class="text-end">@Model.TaxAmount.ToString("C", culture)</td>
-          </tr>
-          <tr class="tfoot-total">
-            <td colspan="3" class="text-end">Total</td>
-            <td class="text-end">@Model.Total.ToString("C", culture)</td>
-          </tr>
-        </tfoot>
-      </table>
+      <div class="table-responsive">
+        <table class="table-ios">
+          <thead><tr><th>Concepto</th><th class="num">Cantidad</th><th class="num">Precio</th><th class="num">Importe</th></tr></thead>
+          <tbody>
+            @foreach (var l in Model.Lines)
+            {
+              <tr>
+                <td>@l.Description</td>
+                <td class="num">@Fmt.Num(l.Quantity)</td>
+                <td class="num">@Fmt.Eur(l.UnitPrice)</td>
+                <td class="num fw-600">@Fmt.Eur(l.Total)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="totals">
+        <div class="r"><span>Base imponible</span><span>@Fmt.Eur(Model.Subtotal)</span></div>
+        <div class="r"><span>IVA @Fmt.Pct(Model.TaxRate)</span><span>@Fmt.Eur(Model.TaxAmount)</span></div>
+        <div class="r total"><span>Total</span><span>@Fmt.Eur(Model.Total)</span></div>
+      </div>
 
       @if (!string.IsNullOrWhiteSpace(Model.Notes))
       {
-        <div class="notes-block">
-          <p class="detail-label">Notas</p>
-          <p class="mb-0">@Model.Notes</p>
-        </div>
+        <div class="notes">@Model.Notes</div>
       }
     </div>
   </div>
 
-  <div class="col-lg-4">
-    <div class="card-panel">
-      <h3 class="section-heading">Acciones</h3>
-      <div class="d-grid gap-2">
-        <a href="@Url.Action("Print", new{id=Model.Id})" target="_blank" class="btn btn-outline-secondary">
-          <i class="bi bi-printer me-2"></i>Ver / Imprimir PDF
-        </a>
-        <a href="@Url.Action("Edit", new{id=Model.Id})" class="btn btn-outline-secondary">
-          <i class="bi bi-pencil me-2"></i>Editar factura
-        </a>
-        <hr />
-        <form asp-action="Delete" method="post" onsubmit="return confirm('¿Eliminar esta factura permanentemente?')">
-          @Html.AntiForgeryToken()
-          <input type="hidden" name="id" value="@Model.Id" />
-          <button type="submit" class="btn btn-outline-danger w-100">
-            <i class="bi bi-trash me-2"></i>Eliminar
-          </button>
+  <div class="col-xl-4">
+    <div class="section-title">Acciones</div>
+    <div class="card-ios card-pad action-list mb-3">
+      @if (Model.IsOpen)
+      {
+        <a href="@Mail(Model.Status == InvoiceStatus.Overdue)" class="btn btn-tinted"><i class="bi bi-envelope"></i>@(Model.Status == InvoiceStatus.Overdue ? "Enviar recordatorio de pago" : "Enviar por email")</a>
+      }
+      <a href="@Url.Action("Create", new { copyOf = Model.Id })" class="btn btn-gray"><i class="bi bi-copy"></i>Duplicar como nueva</a>
+      @if (Model.Status == InvoiceStatus.Paid)
+      {
+        <form asp-action="UndoPayment" asp-route-id="@Model.Id" method="post"
+              data-confirm="La factura volverá a figurar como pendiente de cobro." data-confirm-title="¿Deshacer el cobro?" data-confirm-ok="Deshacer">
+          <button class="btn btn-gray"><i class="bi bi-arrow-counterclockwise"></i>Deshacer cobro</button>
         </form>
-      </div>
+      }
+      @if (Model.IsOpen)
+      {
+        <button type="button" class="btn btn-danger-tinted" data-bs-toggle="modal" data-bs-target="#cancel-modal"><i class="bi bi-x-circle"></i>Anular factura</button>
+      }
+      @if (Model.IsDraft)
+      {
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post"
+              data-confirm="El borrador se eliminará definitivamente." data-confirm-title="¿Eliminar borrador?" data-confirm-ok="Eliminar" data-confirm-danger>
+          <button class="btn btn-danger-tinted"><i class="bi bi-trash"></i>Eliminar borrador</button>
+        </form>
+      }
     </div>
 
-    <div class="card-panel mt-3">
-      <h3 class="section-heading">Historial</h3>
-      <div class="detail-label">Creada</div>
-      <div class="detail-sub mb-2">@Model.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", culture)</div>
-      <div class="detail-label">Última actualización</div>
-      <div class="detail-sub">@Model.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm", culture)</div>
+    <div class="section-title">Historial</div>
+    <div class="card-ios mb-3">
+      <ul class="list-ios">
+        <li><div class="row-item"><span class="app-ico sm bg-gray"><i class="bi bi-file-earmark-plus"></i></span><span class="grow"><span class="title d-block">Creada</span><span class="sub d-block">@Fmt.DateLong(Model.CreatedAt.ToLocalTime())</span></span></div></li>
+        @if (!Model.IsDraft)
+        {
+          <li><div class="row-item"><span class="app-ico sm bg-blue"><i class="bi bi-send-fill"></i></span><span class="grow"><span class="title d-block">Emitida</span><span class="sub d-block">@Fmt.DateLong(Model.IssueDate)</span></span></div></li>
+        }
+        @if (Model.PaidDate != null)
+        {
+          <li><div class="row-item"><span class="app-ico sm bg-green"><i class="bi bi-check-lg"></i></span><span class="grow"><span class="title d-block">Cobrada · @Model.PaymentMethod</span><span class="sub d-block">@Fmt.DateLong(Model.PaidDate.Value)</span></span></div></li>
+        }
+        else if (Model.Status == InvoiceStatus.Cancelled)
+        {
+          <li><div class="row-item"><span class="app-ico sm bg-red"><i class="bi bi-x-lg"></i></span><span class="grow"><span class="title d-block">Anulada</span><span class="sub d-block">@Fmt.DateLong(Model.UpdatedAt.ToLocalTime())</span></span></div></li>
+        }
+        else if (Model.IsOpen)
+        {
+          <li><div class="row-item"><span class="app-ico sm @(Model.Status == InvoiceStatus.Overdue ? "bg-red" : "bg-orange")"><i class="bi bi-calendar-event"></i></span><span class="grow"><span class="title d-block">Vencimiento</span><span class="sub d-block">@Fmt.DateLong(Model.DueDate) · @Fmt.DueText(Model)</span></span></div></li>
+        }
+      </ul>
     </div>
+
+    @if (history.Any())
+    {
+      <div class="section-title">Otras facturas de @c.Name</div>
+      <div class="card-ios">
+        <ul class="list-ios plain">
+          @foreach (var h in history)
+          {
+            <li>
+              <a href="@Url.Action("Details", new { id = h.Id })">
+                <span class="grow"><span class="title d-block tnum">@h.Number</span><span class="sub d-block">@Fmt.Date(h.IssueDate)</span></span>
+                <span class="end"><span class="d-block fw-600 tnum">@Fmt.Eur(h.Total)</span>@Fmt.Pill(h.Status)</span>
+                <i class="bi bi-chevron-right chev"></i>
+              </a>
+            </li>
+          }
+        </ul>
+      </div>
+    }
   </div>
 </div>
+
+@if (Model.IsOpen)
+{
+  <div class="modal fade" id="pay-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+      <form class="modal-content" asp-action="RegisterPayment" asp-route-id="@Model.Id" method="post">
+        <div class="modal-header pb-0"><h5 class="modal-title">Registrar cobro</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body">
+          <div class="d-flex justify-content-between align-items-baseline mb-3">
+            <span class="muted">@Model.Number</span><span class="fs-4 fw-bold tnum">@Fmt.Eur(Model.Total)</span>
+          </div>
+          <label class="form-label" for="paidDate">Fecha de cobro</label>
+          <input type="date" class="form-control mb-3" id="paidDate" name="paidDate" value="@DateTime.Today.ToString("yyyy-MM-dd")"
+                 min="@Model.IssueDate.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+          <label class="form-label" for="method">Forma de pago</label>
+          <select class="form-select" id="method" name="method">
+            @foreach (var m in PaymentMethods.All) { <option>@m</option> }
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-gray" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-green">Marcar como cobrada</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal fade" id="cancel-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+      <form class="modal-content" asp-action="Cancel" asp-route-id="@Model.Id" method="post">
+        <div class="modal-header pb-0"><h5 class="modal-title">Anular @Model.Number</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body">
+          <p class="muted small-2">La factura deja de contar como ingreso pero su número se conserva en la serie. Si hay que corregirla, duplícala y emite una nueva.</p>
+          <label class="form-label" for="reason">Motivo</label>
+          <input class="form-control" id="reason" name="reason" maxlength="200" placeholder="Por ejemplo: error en el importe" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-gray" data-bs-dismiss="modal">Volver</button>
+          <button type="submit" class="btn btn-danger-tinted">Anular factura</button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

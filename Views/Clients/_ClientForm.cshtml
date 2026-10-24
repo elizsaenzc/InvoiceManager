@@ -1,0 +1,68 @@
+@model Client
+@{
+    var isNew = Model.Id == 0;
+}
+<form action="@(isNew ? Url.Action("Create") : Url.Action("Edit", new { id = Model.Id }))" method="post" novalidate>
+  @Html.AntiForgeryToken()
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="section-title">Datos fiscales</div>
+      <div class="card-ios card-pad mb-3">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label asp-for="Name" class="form-label">Razón social</label>
+            <input asp-for="Name" class="form-control" placeholder="Talleres Ejemplo S.L." />
+            <span asp-validation-for="Name" class="text-danger"></span>
+          </div>
+          <div class="col-md-4">
+            <label asp-for="TaxId" class="form-label">NIF / CIF</label>
+            <input asp-for="TaxId" class="form-control text-uppercase" placeholder="B12345674" />
+            <span asp-validation-for="TaxId" class="text-danger"></span>
+          </div>
+          <div class="col-md-8">
+            <label asp-for="Address" class="form-label">Dirección</label>
+            <input asp-for="Address" class="form-control" placeholder="Rúa, número y piso" />
+          </div>
+          <div class="col-md-4">
+            <label asp-for="City" class="form-label">C.P. y población</label>
+            <input asp-for="City" class="form-control" placeholder="27001 Lugo" />
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Contacto</div>
+      <div class="card-ios card-pad">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label asp-for="ContactName" class="form-label">Persona de contacto</label>
+            <input asp-for="ContactName" class="form-control" />
+          </div>
+          <div class="col-md-6">
+            <label asp-for="Email" class="form-label">Email de facturación</label>
+            <input asp-for="Email" type="email" class="form-control" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+          </div>
+          <div class="col-md-6">
+            <label asp-for="Phone" class="form-label">Teléfono</label>
+            <input asp-for="Phone" type="tel" class="form-control" placeholder="+34 982 000 000" />
+            <span asp-validation-for="Phone" class="text-danger"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="section-title">Condiciones</div>
+      <div class="card-ios card-pad sticky-side">
+        <label asp-for="PaymentTermsDays" class="form-label">Plazo de pago (días)</label>
+        <input asp-for="PaymentTermsDays" type="number" min="0" max="120" class="form-control" />
+        <span asp-validation-for="PaymentTermsDays" class="text-danger"></span>
+        <div class="form-hint">Se usa para calcular el vencimiento de sus facturas.</div>
+        <div class="d-grid gap-2 mt-4">
+          <button type="submit" class="btn btn-primary btn-lg">@(isNew ? "Crear cliente" : "Guardar cambios")</button>
+          <a href="@(isNew ? Url.Action("Index") : Url.Action("Details", new { id = Model.Id }))" class="btn btn-plain">Cancelar</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>

@@ -1,92 +1,12 @@
 @model Invoice
 @{
-    ViewData["Title"] = $"Editar {Model.Number}";
+    ViewData["Title"] = Model.IsDraft ? "Editar borrador" : $"Editar {Model.Number}";
 }
-
-<form asp-action="Edit" method="post" id="invoice-form">
-  @Html.AntiForgeryToken()
-  <input type="hidden" asp-for="Id" />
-  <input type="hidden" asp-for="Number" />
-  <input type="hidden" asp-for="Status" />
-  <input type="hidden" asp-for="CreatedAt" />
-
-  <div class="toolbar mb-4">
-    <a href="@Url.Action("Details", new{id=Model.Id})" class="btn btn-ghost">
-      <i class="bi bi-arrow-left me-1"></i>Cancelar
-    </a>
-    <button type="submit" class="btn btn-primary">
-      <i class="bi bi-check-lg me-1"></i>Guardar cambios
-    </button>
+<div class="page-head">
+  <div>
+    <a href="@Url.Action("Details", new { id = Model.Id })" class="back-link"><i class="bi bi-chevron-left"></i>@Model.DisplayNumber</a>
+    <h1 class="page-title">@(Model.IsDraft ? "Editar borrador" : $"Editar {Model.Number}")</h1>
   </div>
-
-  <div class="row g-4">
-    <div class="col-lg-8">
-      <div class="card-panel mb-4">
-        <h2 class="section-heading">Datos generales · <span class="text-muted fw-normal">@Model.Number</span></h2>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label asp-for="ClientId" class="form-label">Cliente</label>
-            <select asp-for="ClientId" asp-items="ViewBag.Clients" class="form-select">
-              <option value="">— Selecciona —</option>
-            </select>
-            <span asp-validation-for="ClientId" class="text-danger small"></span>
-          </div>
-          <div class="col-md-3">
-            <label asp-for="IssueDate" class="form-label">Fecha emisión</label>
-            <input asp-for="IssueDate" type="date" class="form-control" />
-          </div>
-          <div class="col-md-3">
-            <label asp-for="DueDate" class="form-label">Vencimiento</label>
-            <input asp-for="DueDate" type="date" class="form-control" />
-          </div>
-        </div>
-      </div>
-
-      <div class="card-panel mb-4">
-        <h2 class="section-heading">Líneas</h2>
-        <div id="lines-container">
-          <div class="lines-header d-none d-md-grid lines-grid">
-            <span>Descripción</span><span class="text-center">Cantidad</span><span class="text-end">Precio unit.</span><span class="text-end">Total</span><span></span>
-          </div>
-          @{ int idx = 0; }
-          @foreach (var line in Model.Lines)
-          {
-            <partial name="_InvoiceLine" model="new Tuple<InvoiceLine, int>(line, idx)" />
-            idx++;
-          }
-        </div>
-        <button type="button" id="add-line" class="btn btn-outline-secondary btn-sm mt-3">
-          <i class="bi bi-plus me-1"></i>Añadir línea
-        </button>
-      </div>
-
-      <div class="card-panel mb-4">
-        <label asp-for="Notes" class="form-label">Notas</label>
-        <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
-      </div>
-    </div>
-
-    <div class="col-lg-4">
-      <div class="card-panel sticky-top" style="top:1rem">
-        <h2 class="section-heading">Resumen</h2>
-        <div class="mb-3">
-          <label asp-for="TaxRate" class="form-label">IVA (%)</label>
-          <input asp-for="TaxRate" type="number" min="0" max="100" step="1" class="form-control" id="tax-rate" />
-        </div>
-        <div class="summary-block">
-          <div class="summary-row"><span>Subtotal</span><span id="s-subtotal">0,00 €</span></div>
-          <div class="summary-row"><span>IVA (<span id="s-tax-pct">@Model.TaxRate</span>%)</span><span id="s-tax">0,00 €</span></div>
-          <div class="summary-row summary-total"><span>Total</span><span id="s-total">0,00 €</span></div>
-        </div>
-        <div class="d-grid gap-2 mt-4">
-          <button type="submit" class="btn btn-primary btn-lg">Guardar cambios</button>
-          <a href="@Url.Action("Details", new{id=Model.Id})" class="btn btn-ghost">Cancelar</a>
-        </div>
-      </div>
-    </div>
-  </div>
-</form>
-
-@section Scripts {
-<script src="~/js/invoice-form.js"></script>
-}
+  @Fmt.Pill(Model.Status, true)
+</div>
+<partial name="_InvoiceForm" model="Model" />
