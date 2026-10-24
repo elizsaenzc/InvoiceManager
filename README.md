@@ -4,7 +4,7 @@ Invoicing app for a small Spanish company, built with **ASP.NET Core 8 MVC**, En
 
 It covers the full life of an invoice the way a small business actually works: drafts, a correlative numbering series, issuing, collecting payments, cancelling, and the quarterly VAT summary for the accountant.
 
-**Live demo:** https://invoicemanager.onrender.com (free plan: the first visit may take ~30 s to wake up)
+**Live demo:** https://invoicemanager-67f4.onrender.com (free plan: the first visit may take ~30 s to wake up)
 
 ![Dashboard](assets/dashboard.png)
 
