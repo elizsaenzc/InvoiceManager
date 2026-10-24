@@ -6,6 +6,7 @@ token antiforgery real, y comprueba validaciones, numeración correlativa y expo
 Sale con código 1 si algo falla.
 """
 import csv
+import html as htmllib
 import datetime as dt
 import http.cookiejar
 import io
@@ -58,7 +59,7 @@ def get(path):
 
 
 def text(raw):
-    return raw.decode("utf-8", "replace")
+    return htmllib.unescape(raw.decode("utf-8", "replace"))
 
 
 def check(ok, label, detail=""):

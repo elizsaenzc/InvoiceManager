@@ -1,4 +1,7 @@
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.WebEncoders;
 using InvoiceManager.Data;
 using InvoiceManager.Models;
 using InvoiceManager.Services;
@@ -17,6 +20,9 @@ builder.Services.AddControllersWithViews(o =>
     m.SetUnknownValueIsInvalidAccessor(_ => "Valor no válido.");
     m.SetNonPropertyAttemptedValueIsInvalidAccessor(v => $"El valor «{v}» no es válido.");
 });
+
+// Acentos, ñ y € tal cual en el HTML en lugar de entidades (&#xE1;, &#x20AC;…)
+builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
 
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=invoicemanager.db"));

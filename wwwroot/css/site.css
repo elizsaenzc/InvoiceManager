@@ -326,6 +326,10 @@ a:hover { color: var(--ios-blue); }
   .lines-grid > :first-child { grid-column: 1 / -1; }
   .lines-header { display: none; }
   .table-ios .hide-sm { display: none; }
+  .filters .segmented { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .filters .segmented::-webkit-scrollbar { display: none; }
+  .filters form { width: 100%; }
+  .filters form .form-select { flex: 1; min-width: 0; }
   .doc-grid { grid-template-columns: 1fr; }
   .doc-head { flex-direction: column; }
   .kpi-value { font-size: 22px; }

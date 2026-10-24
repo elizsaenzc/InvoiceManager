@@ -141,14 +141,14 @@
       </div>
       <div class="table-responsive">
         <table class="table-ios">
-          <thead><tr><th>Número</th><th>Cliente</th><th class="hide-sm">Fecha</th><th class="num">Total</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Número</th><th>Cliente</th><th class="hide-sm hide-xl">Fecha</th><th class="num">Total</th><th>Estado</th></tr></thead>
           <tbody>
             @foreach (var inv in Model.RecentInvoices)
             {
               <tr class="link" data-href="@Url.Action("Details", "Invoices", new { id = inv.Id })">
                 <td><span class="inv-no">@inv.Number</span></td>
                 <td><span class="d-block text-truncate" style="max-width:260px">@inv.Client?.Name</span></td>
-                <td class="hide-sm muted">@Fmt.Date(inv.IssueDate)</td>
+                <td class="hide-sm hide-xl muted">@Fmt.Date(inv.IssueDate)</td>
                 <td class="num fw-600">@Fmt.Eur(inv.Total)</td>
                 <td>@Fmt.Pill(inv.Status)</td>
               </tr>
