@@ -1,0 +1,15 @@
+→ /
+→ /Invoices
+→ /Invoices?status=Overdue
+→ /Invoices/Details/61
+→ /Invoices?status=Paid
+→ /Invoices/Details/41
+→ /Invoices/Print/41
+→ /Invoices?status=Open
+→ /Invoices/Details/141
+→ /Invoices/Create
+→ /Clients
+→ /Clients/Details/7
+→ /Reports
+→ /Invoices/Details/999999
+console http://localhost:8080/Invoices/Details/999999: Failed to load resource: the server responded with a status of 404 (Not Found)
